@@ -29,11 +29,9 @@ namespace ScreenRecorderApp {
 
         private void PosTimer_Tick(object sender, EventArgs e) {
             if (!isDrawing) return;
-            
             var pos = PointToScreen(Mouse.GetPosition(this));
             Point currentPos = new Point(pos.X, pos.Y);
 
-            // Only add point if mouse moved more than 2 pixels to save CPU/GPU
             if (lastPos != default && (Math.Abs(lastPos.X - currentPos.X) > 2 || Math.Abs(lastPos.Y - currentPos.Y) > 2)) {
                 DrawLine.Points.Add(currentPos);
                 lastPos = currentPos;
