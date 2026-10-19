@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Runtime.InteropServices;
 using System.Windows;
@@ -61,8 +62,9 @@ namespace ScreenRecorderApp {
                 Directory.CreateDirectory("temp_segments");
             }
 
-            string outFile = $"temp_segments/seg_{segmentCount}.mp4";
-            string args = $"-f gdigrab -framerate 30 -video_size 1920x1080 -draw_mouse 1 -i desktop -c:v libx264 -preset ultrafast -pix_fmt yuv420p "{outFile}"";
+            string outFile = Path.Combine("temp_segments", "seg_" + segmentCount + ".mp4");
+            // Using concatenation to prevent markdown backslash stripping issues
+            string args = "-f gdigrab -framerate 30 -video_size 1920x1080 -draw_mouse 1 -i desktop -c:v libx264 -preset ultrafast -pix_fmt yuv420p \"" + outFile + "\"";
             
             ffmpegProcess = new Process {
                 StartInfo = new ProcessStartInfo("ffmpeg.exe", args) { UseShellExecute = false, CreateNoWindow = true }
@@ -89,20 +91,22 @@ namespace ScreenRecorderApp {
             if (ffmpegProcess != null && !ffmpegProcess.HasExited) ffmpegProcess.Kill();
             
             StatusText.Text = "Processing & Mixing Audio...";
-            string finalVideo = "temp_segments/final_video.mp4";
+            string finalVideo = Path.Combine("temp_segments", "final_video.mp4");
             
             // Concatenate segments if paused
             if (segmentCount > 1) {
-                string listFile = "temp_segments/list.txt";
-                File.WriteAllLines(listFile, System.IO.Directory.GetFiles("temp_segments", "seg_*.mp4").Select(f => $"file '{Path.GetFullPath(f)}'"));
-                Process.Start("ffmpeg.exe", $"-f concat -safe 0 -i "{listFile}" -c copy "{finalVideo}"").WaitForExit();
+                string listFile = Path.Combine("temp_segments", "list.txt");
+                var files = Directory.GetFiles("temp_segments", "seg_*.mp4").OrderBy(f => f);
+                File.WriteAllLines(listFile, files.Select(f => "file '" + Path.GetFullPath(f) + "'"));
+                Process.Start("ffmpeg.exe", "-f concat -safe 0 -i \"" + listFile + "\" -c copy \"" + finalVideo + "\"").WaitForExit();
             } else {
-                File.Move("temp_segments/seg_0.mp4", finalVideo);
+                File.Move(Path.Combine("temp_segments", "seg_0.mp4"), finalVideo);
             }
 
             // Mix with bg.mp3 (loop if short, trim if long)
             if (File.Exists("bg.mp3")) {
-                Process.Start("ffmpeg.exe", $"-i "{finalVideo}" -stream_loop -1 -i bg.mp3 -c:v copy -c:a aac -shortest -map 0:v:0 -map 1:a:0 "Final_Recording.mp4"").WaitForExit();
+                string mixArgs = "-i \"" + finalVideo + "\" -stream_loop -1 -i bg.mp3 -c:v copy -c:a aac -shortest -map 0:v:0 -map 1:a:0 \"Final_Recording.mp4\"";
+                Process.Start("ffmpeg.exe", mixArgs).WaitForExit();
                 File.Delete(finalVideo);
                 StatusText.Text = "Saved: Final_Recording.mp4";
             } else {
