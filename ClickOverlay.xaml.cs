@@ -8,7 +8,7 @@ using System.Windows.Shapes;
 using System.Windows.Threading;
 using System.Runtime.InteropServices;
 using System.Media;
-using System.Windows.Forms;  // ADDED - Required for Cursor.Position
+using System.Windows.Forms;
 
 namespace ScreenRecorderApp {
     public partial class ClickOverlay : Window {
