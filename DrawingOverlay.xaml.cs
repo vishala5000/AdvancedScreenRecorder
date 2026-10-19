@@ -3,7 +3,7 @@ using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Threading;
-using System.Windows.Forms;  // ADDED - Required for Cursor.Position
+using System.Windows.Forms;
 
 namespace ScreenRecorderApp {
     public partial class DrawingOverlay : Window {
