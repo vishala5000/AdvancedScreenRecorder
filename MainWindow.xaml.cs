@@ -20,13 +20,11 @@ namespace ScreenRecorderApp {
         private const int VK_ESCAPE = 0x1B;
         private const int WM_HOTKEY = 0x0312;
         
-        // Hotkey IDs
         private const int HOTKEY_START = 1;
         private const int HOTKEY_PAUSE = 2;
         private const int HOTKEY_STOP = 3;
         private const int HOTKEY_DRAW = 4;
         
-        // Modifier keys
         private const uint MOD_CONTROL = 0x0002;
         private const uint MOD_SHIFT = 0x0004;
 
@@ -84,7 +82,6 @@ namespace ScreenRecorderApp {
         }
 
         private void MainWindow_Loaded(object sender, RoutedEventArgs e) {
-            // Register global hotkeys
             var helper = new WindowInteropHelper(this);
             IntPtr hWnd = helper.Handle;
             
@@ -93,7 +90,6 @@ namespace ScreenRecorderApp {
             RegisterHotKey(hWnd, HOTKEY_STOP, MOD_CONTROL | MOD_SHIFT, 0x53); // S
             RegisterHotKey(hWnd, HOTKEY_DRAW, MOD_CONTROL | MOD_SHIFT, 0x44); // D
             
-            // Add message hook for hotkeys
             HwndSource source = HwndSource.FromHwnd(hWnd);
             source.AddHook(HwndHook);
             
@@ -127,7 +123,6 @@ namespace ScreenRecorderApp {
         }
 
         protected override void OnClosed(EventArgs e) {
-            // Unregister hotkeys
             var helper = new WindowInteropHelper(this);
             UnregisterHotKey(helper.Handle, HOTKEY_START);
             UnregisterHotKey(helper.Handle, HOTKEY_PAUSE);
@@ -229,13 +224,15 @@ namespace ScreenRecorderApp {
                 isRecording = true;
                 isPaused = false;
                 segmentCount++;
-                StatusText.Text = "Recording " + screenWidth + "x" + screenHeight + "...";
                 Log("Recording started. Segment: " + segmentCount);
                 clickOverlay.Start();
+                
+                // HIDE THE WINDOW SO IT DOESN'T APPEAR IN THE VIDEO
+                this.Hide();
+                Log("Window hidden during recording");
             } catch (Exception ex) {
                 Log("StartRec error: " + ex.Message + "\n" + ex.StackTrace);
                 MessageBox.Show("Error starting recording: " + ex.Message, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                StatusText.Text = "Error starting recording";
             }
         }
 
@@ -243,8 +240,15 @@ namespace ScreenRecorderApp {
             if (!isRecording || isPaused) return;
             isPaused = true;
             StopFFmpegGracefully();
-            StatusText.Text = "Paused.";
             Log("Recording paused");
+            
+            // Show window when paused so user can see status
+            if (!this.IsVisible) {
+                this.Show();
+                this.Activate();
+                StatusText.Text = "Paused. Use Ctrl+Shift+R to resume or Ctrl+Shift+S to stop.";
+                Log("Window shown during pause");
+            }
         }
 
         private void StopFFmpegGracefully() {
@@ -277,12 +281,11 @@ namespace ScreenRecorderApp {
             StopFFmpegGracefully();
             clickOverlay.Stop();
 
-            StatusText.Text = "Processing & Mixing Audio... Please wait.";
+            Log("Starting video processing...");
             StartRecButton.IsEnabled = false;
             
             await Task.Run(() => {
                 try {
-                    Log("Starting video processing...");
                     string finalVideo = Path.Combine(tempFolder, "final_video.mp4");
                     
                     var segmentFiles = Directory.GetFiles(tempFolder, "seg_*.mp4");
@@ -383,6 +386,13 @@ namespace ScreenRecorderApp {
             StartRecButton.IsEnabled = true;
             isRecording = false;
             isPaused = false;
+            
+            // SHOW THE WINDOW AGAIN AFTER RECORDING STOPS
+            if (!this.IsVisible) {
+                this.Show();
+                this.Activate();
+                Log("Window shown after recording stopped");
+            }
         }
 
         private void Draw_Click(object sender, RoutedEventArgs e) {
@@ -392,7 +402,6 @@ namespace ScreenRecorderApp {
                 overlay.Activate();
                 overlay.StartDrawing();
                 drawTimer.Start();
-                StatusText.Text = "Drawing mode. Hold left mouse. Press Esc to stop.";
                 Log("Drawing mode activated");
             } catch (Exception ex) {
                 Log("Draw_Click error: " + ex.Message);
