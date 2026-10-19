@@ -1,0 +1,25 @@
+<Window x:Class="ScreenRecorderApp.AreaSelectionOverlay"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        WindowStyle="None" 
+        AllowsTransparency="True" 
+        Background="#80000000"
+        Topmost="True" 
+        ShowInTaskbar="False"
+        WindowState="Maximized"
+        Cursor="Cross">
+    <Canvas x:Name="SelectionCanvas">
+        <Rectangle x:Name="SelectionRect" 
+                   Stroke="#E60000" 
+                   StrokeThickness="2" 
+                   StrokeDashArray="5 5"
+                   Fill="#33E60000"/>
+        <TextBlock x:Name="InfoText" 
+                   Foreground="White" 
+                   FontSize="16" 
+                   FontWeight="Bold"
+                   Canvas.Left="20" 
+                   Canvas.Top="20"
+                   Text="Click and drag to select recording area. Press Esc to cancel."/>
+    </Canvas>
+</Window>
