@@ -8,6 +8,7 @@ using System.Windows.Shapes;
 using System.Windows.Threading;
 using System.Runtime.InteropServices;
 using System.Media;
+using System.Windows.Forms;  // ADDED - Required for Cursor.Position
 
 namespace ScreenRecorderApp {
     public partial class ClickOverlay : Window {
@@ -50,13 +51,7 @@ namespace ScreenRecorderApp {
                 bool leftDown = (GetAsyncKeyState(0x01) & 0x8000) != 0;
                 bool rightDown = (GetAsyncKeyState(0x02) & 0x8000) != 0;
                 
-                // Get actual cursor position
-                Point screenPos = new Point(
-                    System.Windows.Forms.Cursor.Position.X,
-                    System.Windows.Forms.Cursor.Position.Y
-                );
-                
-                // CORRECTLY convert to window coordinates
+                Point screenPos = new Point(Cursor.Position.X, Cursor.Position.Y);
                 Point windowPos = this.PointFromScreen(screenPos);
 
                 if (leftDown && !wasLeftDown) { 
