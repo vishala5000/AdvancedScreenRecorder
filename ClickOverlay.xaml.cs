@@ -102,8 +102,9 @@ namespace ScreenRecorderApp {
         private SoundPlayer player;
 
         public ClickSoundPlayer() {
-            string tempWav = Path.Combine(Path.GetTempPath(), "vrec_click.wav");
-            if (!File.Exists(tempWav)) {
+            // Fully qualified to prevent conflict with System.Windows.Shapes.Path
+            string tempWav = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "vrec_click.wav");
+            if (!System.IO.File.Exists(tempWav)) {
                 GenerateClickWav(tempWav);
             }
             player = new SoundPlayer(tempWav);
@@ -118,8 +119,8 @@ namespace ScreenRecorderApp {
             int durationMs = 20;
             int samples = sampleRate * durationMs / 1000;
             
-            using (var fs = new FileStream(path, FileMode.Create)) {
-                using (var writer = new BinaryWriter(fs)) {
+            using (var fs = new System.IO.FileStream(path, System.IO.FileMode.Create)) {
+                using (var writer = new System.IO.BinaryWriter(fs)) {
                     // Write standard WAV header
                     writer.Write(System.Text.Encoding.ASCII.GetBytes("RIFF"));
                     writer.Write(36 + samples * 2);
