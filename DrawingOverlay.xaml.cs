@@ -3,11 +3,17 @@ using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Threading;
-using System.Windows.Forms;
 
 namespace ScreenRecorderApp {
     public partial class DrawingOverlay : Window {
         [DllImport("user32.dll")] private static extern short GetAsyncKeyState(int vKey);
+        [DllImport("user32.dll")] [return: MarshalAs(UnmanagedType.Bool)] private static extern bool GetCursorPos(out POINT lpPoint);
+        
+        [StructLayout(LayoutKind.Sequential)]
+        public struct POINT {
+            public int X;
+            public int Y;
+        }
 
         private bool isDrawing = false;
         private Point lastPos;
@@ -55,7 +61,9 @@ namespace ScreenRecorderApp {
                 bool isLeftClickHeld = (GetAsyncKeyState(0x01) & 0x8000) != 0;
 
                 if (isLeftClickHeld) {
-                    Point screenPos = new Point(Cursor.Position.X, Cursor.Position.Y);
+                    // Get cursor position using native Windows API (no namespace conflicts)
+                    GetCursorPos(out POINT cursorPos);
+                    Point screenPos = new Point(cursorPos.X, cursorPos.Y);
                     Point windowPos = this.PointFromScreen(screenPos);
 
                     if (!hasStartedDrawing) {
