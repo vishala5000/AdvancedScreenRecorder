@@ -31,15 +31,21 @@ namespace ScreenRecorderApp {
 
         private void EnsureFFmpeg() {
             if (!File.Exists("ffmpeg.exe")) {
-                StatusText.Text = "Downloading FFmpeg...";
-                using var client = new WebClient();
-                client.DownloadFile("https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip", "ffmpeg.zip");
-                System.IO.Compression.ZipFile.ExtractToDirectory("ffmpeg.zip", "ffmpeg_temp");
-                var exe = Directory.GetFiles("ffmpeg_temp", "ffmpeg.exe", SearchOption.AllDirectories)[0];
-                File.Copy(exe, "ffmpeg.exe");
-                Directory.Delete("ffmpeg_temp", true);
-                File.Delete("ffmpeg.zip");
-                StatusText.Text = "Ready.";
+                try {
+                    StatusText.Text = "Downloading FFmpeg (first time only)...";
+                    using (var client = new WebClient()) {
+                        client.DownloadFile("https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip", "ffmpeg.zip");
+                    }
+                    System.IO.Compression.ZipFile.ExtractToDirectory("ffmpeg.zip", "ffmpeg_temp");
+                    var exe = Directory.GetFiles("ffmpeg_temp", "ffmpeg.exe", SearchOption.AllDirectories)[0];
+                    File.Copy(exe, "ffmpeg.exe");
+                    Directory.Delete("ffmpeg_temp", true);
+                    File.Delete("ffmpeg.zip");
+                    StatusText.Text = "Ready. FFmpeg downloaded.";
+                } catch (Exception ex) {
+                    StatusText.Text = "Error downloading FFmpeg: " + ex.Message;
+                    MessageBox.Show("Failed to download FFmpeg. Please check your internet connection and restart the app.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
             }
         }
 
@@ -104,16 +110,20 @@ namespace ScreenRecorderApp {
                     File.Move(System.IO.Path.Combine("temp_segments", "seg_0.mp4"), finalVideo);
                 }
 
+                // Generate unique filename with timestamp
+                string timestamp = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss");
+                string finalFilename = "VRec_" + timestamp + ".mp4";
+
                 if (File.Exists("bg.mp3")) {
-                    string mixArgs = "-i \"" + finalVideo + "\" -stream_loop -1 -i bg.mp3 -c:v copy -c:a aac -shortest -map 0:v:0 -map 1:a:0 \"Final_Recording.mp4\"";
+                    string mixArgs = "-i \"" + finalVideo + "\" -stream_loop -1 -i bg.mp3 -c:v copy -c:a aac -shortest -map 0:v:0 -map 1:a:0 \"" + finalFilename + "\"";
                     Process.Start("ffmpeg.exe", mixArgs).WaitForExit();
                     File.Delete(finalVideo);
                 } else {
-                    File.Move(finalVideo, "Final_Recording.mp4");
+                    File.Move(finalVideo, finalFilename);
                 }
             });
 
-            StatusText.Text = "Saved: Final_Recording.mp4";
+            StatusText.Text = "Saved successfully!";
             StartRecButton.IsEnabled = true;
             isRecording = false;
             isPaused = false;
