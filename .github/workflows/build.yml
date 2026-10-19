@@ -1,26 +1,32 @@
 name: Build Windows App
+
 on:
   push:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
+
 jobs:
   build:
     runs-on: windows-latest
+
     steps:
     - uses: actions/checkout@v4
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: 8.0.x
-    - name: Restore dependencies
-      run: dotnet restore
-    - name: Build
-      run: dotnet build --no-restore -c Release
-    - name: Publish
-      run: dotnet publish -c Release -o ./publish
+
+    - name: Setup MSBuild
+      uses: microsoft/setup-msbuild@v2
+
+    - name: Setup NuGet
+      uses: nuget/setup-nuget@v2
+
+    - name: Restore NuGet Packages
+      run: nuget restore ScreenRecorderApp.csproj
+
+    - name: Build the Application
+      run: msbuild ScreenRecorderApp.csproj /p:Configuration=Release /p:DeployOnBuild=false
+
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: Windows-Recorder-EXE
-        path: ./publish
+        name: V-Rec-Windows-EXE
+        path: bin/Release/net48/V Rec.exe
