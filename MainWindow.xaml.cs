@@ -26,6 +26,7 @@ namespace ScreenRecorderApp {
         private string tempFolder;
         private string outputFolder;
         private string appFolder;
+        private string logFile;
         private int screenWidth;
         private int screenHeight;
 
@@ -34,37 +35,62 @@ namespace ScreenRecorderApp {
             
             appFolder = AppDomain.CurrentDomain.BaseDirectory;
             outputFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyVideos), "VRec");
-            tempFolder = Path.Combine(Path.GetTempPath(), "VRec_Temp");
+            tempFolder = Path.Combine(Path.GetTempPath(), "VRec_Temp_" + Process.GetCurrentProcess().Id);
+            logFile = Path.Combine(outputFolder, "vrec_log.txt");
             
             screenWidth = GetSystemMetrics(0);
             screenHeight = GetSystemMetrics(1);
             
             try {
                 if (!Directory.Exists(outputFolder)) Directory.CreateDirectory(outputFolder);
-            } catch {
+                Log("Output folder: " + outputFolder);
+            } catch (Exception ex) {
                 outputFolder = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
+                Log("Failed to create Videos folder, using Desktop: " + ex.Message);
             }
             
             string iconPath = Path.Combine(appFolder, "icon.png");
             if (File.Exists(iconPath)) {
-                try { this.Icon = new BitmapImage(new Uri(iconPath)); } catch { }
+                try { 
+                    this.Icon = new BitmapImage(new Uri(iconPath));
+                    Log("Icon loaded successfully");
+                } catch (Exception ex) {
+                    Log("Failed to load icon: " + ex.Message);
+                }
+            } else {
+                Log("Icon file not found at: " + iconPath);
             }
 
             CheckFFmpeg();
             InitDrawTimer();
             clickOverlay = new ClickOverlay();
+            
+            Log("MainWindow initialized. Screen: " + screenWidth + "x" + screenHeight);
+        }
+
+        private void Log(string message) {
+            try {
+                string logEntry = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + " - " + message + Environment.NewLine;
+                File.AppendAllText(logFile, logEntry);
+            } catch { }
         }
 
         private void CheckFFmpeg() {
             try {
                 string ffmpegPath = Path.Combine(appFolder, "ffmpeg.exe");
+                Log("Checking FFmpeg at: " + ffmpegPath);
+                
                 if (!File.Exists(ffmpegPath)) {
                     StatusText.Text = "Error: FFmpeg not found!";
+                    Log("FFmpeg NOT FOUND");
                     MessageBox.Show("FFmpeg is missing from: " + appFolder, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 } else {
-                    StatusText.Text = "Ready. Screen: " + screenWidth + "x" + screenHeight + ". Videos saved to: " + outputFolder;
+                    var fileInfo = new FileInfo(ffmpegPath);
+                    Log("FFmpeg found. Size: " + fileInfo.Length + " bytes");
+                    StatusText.Text = "Ready. Screen: " + screenWidth + "x" + screenHeight + ". Videos: " + outputFolder;
                 }
-            } catch {
+            } catch (Exception ex) {
+                Log("CheckFFmpeg error: " + ex.Message);
                 StatusText.Text = "Ready.";
             }
         }
@@ -96,7 +122,9 @@ namespace ScreenRecorderApp {
                         try { Directory.Delete(tempFolder, true); } catch { }
                     }
                     Directory.CreateDirectory(tempFolder);
+                    Log("Temp folder created: " + tempFolder);
                 } catch (Exception ex) {
+                    Log("Failed to create temp folder: " + ex.Message);
                     MessageBox.Show("Error creating temp folder: " + ex.Message, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                     return;
                 }
@@ -104,10 +132,11 @@ namespace ScreenRecorderApp {
 
             try {
                 string outFile = Path.Combine(tempFolder, "seg_" + segmentCount + ".mp4");
-                // Standard MP4 recording - NO fragmented flags (allows proper concatenation)
                 string args = "-y -f gdigrab -framerate 30 -video_size " + screenWidth + "x" + screenHeight + 
                               " -draw_mouse 1 -i desktop -c:v libx264 -preset ultrafast -tune zerolatency " +
                               "-crf 23 -pix_fmt yuv420p \"" + outFile + "\"";
+                
+                Log("Starting FFmpeg with args: " + args);
                 
                 ffmpegProcess = new Process {
                     StartInfo = new ProcessStartInfo {
@@ -116,18 +145,26 @@ namespace ScreenRecorderApp {
                         UseShellExecute = false,
                         CreateNoWindow = true,
                         RedirectStandardInput = true,
+                        RedirectStandardError = true,
                         WorkingDirectory = tempFolder
                     }
                 };
                 
+                ffmpegProcess.ErrorDataReceived += (s, ev) => {
+                    if (!string.IsNullOrEmpty(ev.Data)) Log("FFmpeg: " + ev.Data);
+                };
+                
                 ffmpegProcess.Start();
+                ffmpegProcess.BeginErrorReadLine();
                 
                 isRecording = true;
                 isPaused = false;
                 segmentCount++;
                 StatusText.Text = "Recording " + screenWidth + "x" + screenHeight + "...";
+                Log("Recording started. Segment: " + segmentCount);
                 clickOverlay.Start();
             } catch (Exception ex) {
+                Log("StartRec error: " + ex.Message + "\n" + ex.StackTrace);
                 MessageBox.Show("Error starting recording: " + ex.Message, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 StatusText.Text = "Error starting recording";
             }
@@ -138,21 +175,30 @@ namespace ScreenRecorderApp {
             isPaused = true;
             StopFFmpegGracefully();
             StatusText.Text = "Paused.";
+            Log("Recording paused");
         }
 
         private void StopFFmpegGracefully() {
             try {
                 if (ffmpegProcess != null && !ffmpegProcess.HasExited) {
+                    Log("Stopping FFmpeg gracefully...");
                     try {
                         ffmpegProcess.StandardInput.WriteLine("q");
                         ffmpegProcess.StandardInput.Flush();
-                    } catch { }
+                    } catch (Exception ex) {
+                        Log("Failed to send 'q' to FFmpeg: " + ex.Message);
+                    }
                     
                     if (!ffmpegProcess.WaitForExit(5000)) {
+                        Log("FFmpeg didn't exit in 5s, force killing");
                         try { ffmpegProcess.Kill(); } catch { }
+                    } else {
+                        Log("FFmpeg stopped gracefully");
                     }
                 }
-            } catch { }
+            } catch (Exception ex) {
+                Log("StopFFmpeg error: " + ex.Message);
+            }
         }
 
         private async void StopRec_Click(object sender, RoutedEventArgs e) {
@@ -167,20 +213,24 @@ namespace ScreenRecorderApp {
             
             await Task.Run(() => {
                 try {
+                    Log("Starting video processing...");
                     string finalVideo = Path.Combine(tempFolder, "final_video.mp4");
                     
-                    var segmentFiles = Directory.GetFiles(tempFolder, "seg_*.mp4")
-                        .Where(f => new FileInfo(f).Length > 1000)
-                        .ToArray();
+                    var segmentFiles = Directory.GetFiles(tempFolder, "seg_*.mp4");
+                    Log("Found " + segmentFiles.Length + " segment files");
                     
-                    if (segmentFiles.Length == 0) {
-                        throw new Exception("No valid video segments found. Recording may have been too short.");
+                    var validSegments = segmentFiles.Where(f => new FileInfo(f).Length > 1000).ToArray();
+                    Log("Valid segments: " + validSegments.Length);
+                    
+                    if (validSegments.Length == 0) {
+                        throw new Exception("No valid video segments found. Check log: " + logFile);
                     }
                     
-                    if (segmentFiles.Length > 1) {
+                    if (validSegments.Length > 1) {
                         string listFile = Path.Combine(tempFolder, "list.txt");
-                        var files = segmentFiles.OrderBy(f => f);
+                        var files = validSegments.OrderBy(f => f);
                         File.WriteAllLines(listFile, files.Select(f => "file '" + Path.GetFullPath(f).Replace("'", "''") + "'"));
+                        Log("Concatenating " + validSegments.Length + " segments");
                         
                         var concatProcess = Process.Start(new ProcessStartInfo {
                             FileName = ffmpegPath,
@@ -190,23 +240,27 @@ namespace ScreenRecorderApp {
                             WorkingDirectory = tempFolder
                         });
                         concatProcess.WaitForExit();
+                        Log("Concat exit code: " + concatProcess.ExitCode);
                         
                         if (concatProcess.ExitCode != 0 || !File.Exists(finalVideo)) {
-                            throw new Exception("FFmpeg concat failed.");
+                            throw new Exception("FFmpeg concat failed. Exit code: " + concatProcess.ExitCode);
                         }
                     } else {
-                        File.Copy(segmentFiles[0], finalVideo, true);
+                        File.Copy(validSegments[0], finalVideo, true);
+                        Log("Single segment, copied to final_video.mp4");
                     }
 
                     if (!File.Exists(finalVideo) || new FileInfo(finalVideo).Length < 1000) {
-                        throw new Exception("Final video file was not created properly.");
+                        throw new Exception("Final video file was not created properly");
                     }
 
                     string timestamp = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss");
                     string finalFilename = Path.Combine(outputFolder, "VRec_" + timestamp + ".mp4");
+                    Log("Output filename: " + finalFilename);
 
                     string bgPath = Path.Combine(appFolder, "bg.mp3");
                     if (File.Exists(bgPath)) {
+                        Log("Mixing with background music: " + bgPath);
                         string mixArgs = "-y -i \"" + finalVideo + "\" -stream_loop -1 -i \"" + bgPath + 
                                          "\" -c:v copy -c:a aac -shortest -map 0:v:0 -map 1:a:0 \"" + finalFilename + "\"";
                         
@@ -218,31 +272,40 @@ namespace ScreenRecorderApp {
                             WorkingDirectory = tempFolder
                         });
                         mixProcess.WaitForExit();
+                        Log("Mix exit code: " + mixProcess.ExitCode);
                         
                         if (mixProcess.ExitCode != 0 || !File.Exists(finalFilename)) {
-                            throw new Exception("FFmpeg audio mix failed.");
+                            throw new Exception("FFmpeg audio mix failed. Exit code: " + mixProcess.ExitCode);
                         }
                         
                         try { File.Delete(finalVideo); } catch { }
                     } else {
+                        Log("No bg.mp3 found, moving video without audio mix");
                         File.Move(finalVideo, finalFilename);
                     }
 
                     if (!File.Exists(finalFilename)) {
-                        throw new Exception("Final output file was not created.");
+                        throw new Exception("Final output file was not created");
                     }
+                    
+                    Log("Video saved successfully: " + finalFilename);
                     
                     try {
                         if (Directory.Exists(tempFolder)) Directory.Delete(tempFolder, true);
-                    } catch { }
+                        Log("Temp folder cleaned up");
+                    } catch (Exception ex) {
+                        Log("Failed to clean temp folder: " + ex.Message);
+                    }
                     
                     Dispatcher.Invoke(() => {
                         MessageBox.Show("Video saved successfully!\n\nLocation: " + finalFilename, 
                                         "Success", MessageBoxButton.OK, MessageBoxImage.Information);
                     });
                 } catch (Exception ex) {
+                    Log("StopRec error: " + ex.Message + "\n" + ex.StackTrace);
                     Dispatcher.Invoke(() => {
-                        MessageBox.Show("Error saving video: " + ex.Message, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                        MessageBox.Show("Error saving video: " + ex.Message + "\n\nCheck log: " + logFile, 
+                                        "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                     });
                 }
             });
@@ -260,8 +323,10 @@ namespace ScreenRecorderApp {
                 overlay.Activate();
                 overlay.StartDrawing();
                 drawTimer.Start();
-                StatusText.Text = "Drawing mode active. Hold left mouse to draw. Press Esc to stop.";
+                StatusText.Text = "Drawing mode. Hold left mouse. Press Esc to stop.";
+                Log("Drawing mode activated");
             } catch (Exception ex) {
+                Log("Draw_Click error: " + ex.Message);
                 MessageBox.Show("Error starting draw mode: " + ex.Message, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
