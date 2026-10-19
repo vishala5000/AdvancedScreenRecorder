@@ -6,6 +6,7 @@ using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
+using System.Windows.Interop;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 
@@ -13,7 +14,21 @@ namespace ScreenRecorderApp {
     public partial class MainWindow : Window {
         [DllImport("user32.dll")] private static extern short GetAsyncKeyState(int vKey);
         [DllImport("user32.dll")] private static extern int GetSystemMetrics(int nIndex);
+        [DllImport("user32.dll")] private static extern bool RegisterHotKey(IntPtr hWnd, int id, uint fsModifiers, uint vk);
+        [DllImport("user32.dll")] private static extern bool UnregisterHotKey(IntPtr hWnd, int id);
+        
         private const int VK_ESCAPE = 0x1B;
+        private const int WM_HOTKEY = 0x0312;
+        
+        // Hotkey IDs
+        private const int HOTKEY_START = 1;
+        private const int HOTKEY_PAUSE = 2;
+        private const int HOTKEY_STOP = 3;
+        private const int HOTKEY_DRAW = 4;
+        
+        // Modifier keys
+        private const uint MOD_CONTROL = 0x0002;
+        private const uint MOD_SHIFT = 0x0004;
 
         private Process ffmpegProcess;
         private bool isRecording = false;
@@ -57,15 +72,69 @@ namespace ScreenRecorderApp {
                 } catch (Exception ex) {
                     Log("Failed to load icon: " + ex.Message);
                 }
-            } else {
-                Log("Icon file not found at: " + iconPath);
             }
 
             CheckFFmpeg();
             InitDrawTimer();
             clickOverlay = new ClickOverlay();
             
+            this.Loaded += MainWindow_Loaded;
+            
             Log("MainWindow initialized. Screen: " + screenWidth + "x" + screenHeight);
+        }
+
+        private void MainWindow_Loaded(object sender, RoutedEventArgs e) {
+            // Register global hotkeys
+            var helper = new WindowInteropHelper(this);
+            IntPtr hWnd = helper.Handle;
+            
+            RegisterHotKey(hWnd, HOTKEY_START, MOD_CONTROL | MOD_SHIFT, 0x52); // R
+            RegisterHotKey(hWnd, HOTKEY_PAUSE, MOD_CONTROL | MOD_SHIFT, 0x50); // P
+            RegisterHotKey(hWnd, HOTKEY_STOP, MOD_CONTROL | MOD_SHIFT, 0x53); // S
+            RegisterHotKey(hWnd, HOTKEY_DRAW, MOD_CONTROL | MOD_SHIFT, 0x44); // D
+            
+            // Add message hook for hotkeys
+            HwndSource source = HwndSource.FromHwnd(hWnd);
+            source.AddHook(HwndHook);
+            
+            Log("Global hotkeys registered");
+        }
+
+        private IntPtr HwndHook(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled) {
+            if (msg == WM_HOTKEY) {
+                int hotkeyId = wParam.ToInt32();
+                
+                switch (hotkeyId) {
+                    case HOTKEY_START:
+                        Dispatcher.Invoke(() => StartRec_Click(null, null));
+                        handled = true;
+                        break;
+                    case HOTKEY_PAUSE:
+                        Dispatcher.Invoke(() => PauseRec_Click(null, null));
+                        handled = true;
+                        break;
+                    case HOTKEY_STOP:
+                        Dispatcher.Invoke(() => StopRec_Click(null, null));
+                        handled = true;
+                        break;
+                    case HOTKEY_DRAW:
+                        Dispatcher.Invoke(() => Draw_Click(null, null));
+                        handled = true;
+                        break;
+                }
+            }
+            return IntPtr.Zero;
+        }
+
+        protected override void OnClosed(EventArgs e) {
+            // Unregister hotkeys
+            var helper = new WindowInteropHelper(this);
+            UnregisterHotKey(helper.Handle, HOTKEY_START);
+            UnregisterHotKey(helper.Handle, HOTKEY_PAUSE);
+            UnregisterHotKey(helper.Handle, HOTKEY_STOP);
+            UnregisterHotKey(helper.Handle, HOTKEY_DRAW);
+            
+            base.OnClosed(e);
         }
 
         private void Log(string message) {
