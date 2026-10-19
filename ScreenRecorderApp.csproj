@@ -14,6 +14,8 @@
   <ItemGroup>
     <PackageReference Include="NAudio" Version="2.2.1" />
     <Reference Include="System.IO.Compression.FileSystem" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Windows.Forms" />
     
     <Resource Include="icon.png" Condition="Exists('icon.png')" />
     <Content Include="bg.mp3" Condition="Exists('bg.mp3')">
