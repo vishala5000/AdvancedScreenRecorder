@@ -22,27 +22,35 @@ namespace ScreenRecorderApp {
         private ClickOverlay clickOverlay;
         private DispatcherTimer drawTimer;
         
-        // Use user-writable directories
         private string tempFolder;
         private string outputFolder;
+        private string appFolder;
 
         public MainWindow() {
             InitializeComponent();
             
-            // Set up user-writable directories
+            // Set up directories - works for both installed and portable
+            appFolder = AppDomain.CurrentDomain.BaseDirectory;
             outputFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyVideos), "VRec");
-            tempFolder = Path.Combine(Path.GetTempPath(), "VRec_Temp");
+            tempFolder = Path.Combine(Path.GetTempPath(), "VRec_Temp_" + Guid.NewGuid().ToString("N").Substring(0, 8));
             
-            if (!Directory.Exists(outputFolder)) {
-                try {
+            try {
+                if (!Directory.Exists(outputFolder)) {
                     Directory.CreateDirectory(outputFolder);
+                }
+            } catch {
+                outputFolder = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
+                try {
+                    if (!Directory.Exists(outputFolder)) {
+                        Directory.CreateDirectory(outputFolder);
+                    }
                 } catch {
-                    outputFolder = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
+                    outputFolder = appFolder;
                 }
             }
             
-            // SAFELY load icon
-            string iconPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "icon.png");
+            // Load icon safely
+            string iconPath = Path.Combine(appFolder, "icon.png");
             if (File.Exists(iconPath)) {
                 try {
                     this.Icon = new BitmapImage(new Uri(iconPath));
@@ -56,10 +64,10 @@ namespace ScreenRecorderApp {
 
         private void CheckFFmpeg() {
             try {
-                string ffmpegPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ffmpeg.exe");
+                string ffmpegPath = Path.Combine(appFolder, "ffmpeg.exe");
                 if (!File.Exists(ffmpegPath)) {
                     StatusText.Text = "Error: FFmpeg not found!";
-                    MessageBox.Show("FFmpeg is missing. Please ensure it is in the same folder as the app.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                    MessageBox.Show("FFmpeg is missing from: " + appFolder, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 } else {
                     StatusText.Text = "Ready. Videos saved to: " + outputFolder;
                 }
@@ -80,7 +88,7 @@ namespace ScreenRecorderApp {
         }
 
         private void StartRec_Click(object sender, RoutedEventArgs e) {
-            string ffmpegPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ffmpeg.exe");
+            string ffmpegPath = Path.Combine(appFolder, "ffmpeg.exe");
             if (!File.Exists(ffmpegPath)) {
                 MessageBox.Show("FFmpeg is missing. Cannot start recording.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 return;
@@ -91,7 +99,9 @@ namespace ScreenRecorderApp {
             if (!isRecording) {
                 segmentCount = 0;
                 try {
-                    if (Directory.Exists(tempFolder)) Directory.Delete(tempFolder, true);
+                    if (Directory.Exists(tempFolder)) {
+                        try { Directory.Delete(tempFolder, true); } catch { }
+                    }
                     Directory.CreateDirectory(tempFolder);
                 } catch (Exception ex) {
                     MessageBox.Show("Error creating temp folder: " + ex.Message, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
@@ -141,7 +151,7 @@ namespace ScreenRecorderApp {
         private async void StopRec_Click(object sender, RoutedEventArgs e) {
             if (!isRecording) return;
             
-            string ffmpegPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ffmpeg.exe");
+            string ffmpegPath = Path.Combine(appFolder, "ffmpeg.exe");
             
             try {
                 if (ffmpegProcess != null && !ffmpegProcess.HasExited) {
@@ -192,7 +202,7 @@ namespace ScreenRecorderApp {
                     string timestamp = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss");
                     string finalFilename = Path.Combine(outputFolder, "VRec_" + timestamp + ".mp4");
 
-                    string bgPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "bg.mp3");
+                    string bgPath = Path.Combine(appFolder, "bg.mp3");
                     if (File.Exists(bgPath)) {
                         string mixArgs = "-i \"" + finalVideo + "\" -stream_loop -1 -i \"" + bgPath + "\" -c:v copy -c:a aac -shortest -map 0:v:0 -map 1:a:0 \"" + finalFilename + "\"";
                         
@@ -228,7 +238,7 @@ namespace ScreenRecorderApp {
                     });
                 } catch (Exception ex) {
                     Dispatcher.Invoke(() => {
-                        MessageBox.Show("Error saving video: " + ex.Message, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                        MessageBox.Show("Error saving video: " + ex.Message + "\n\nStack: " + ex.StackTrace, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                     });
                 }
             });
