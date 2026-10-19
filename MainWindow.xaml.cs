@@ -131,9 +131,9 @@ namespace ScreenRecorderApp {
         private void Minimize_Click(object sender, RoutedEventArgs e) => this.WindowState = WindowState.Minimized;
         private void Exit_Click(object sender, RoutedEventArgs e) => Application.Current.Shutdown();
 
-        // Enable dragging the window by clicking and holding the title bar
+        // THIS IS THE METHOD THAT ALLOWS DRAGGING THE WINDOW
         private void TitleBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e) {
-            DragMove();
+            this.DragMove();
         }
     }
 }
