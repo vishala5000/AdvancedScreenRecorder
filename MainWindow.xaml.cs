@@ -2,7 +2,6 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Net;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using System.Windows;
@@ -24,28 +23,17 @@ namespace ScreenRecorderApp {
 
         public MainWindow() {
             InitializeComponent();
-            EnsureFFmpeg();
+            CheckFFmpeg();
             InitDrawTimer();
             clickOverlay = new ClickOverlay();
         }
 
-        private void EnsureFFmpeg() {
+        private void CheckFFmpeg() {
             if (!File.Exists("ffmpeg.exe")) {
-                try {
-                    StatusText.Text = "Downloading FFmpeg (first time only)...";
-                    using (var client = new WebClient()) {
-                        client.DownloadFile("https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip", "ffmpeg.zip");
-                    }
-                    System.IO.Compression.ZipFile.ExtractToDirectory("ffmpeg.zip", "ffmpeg_temp");
-                    var exe = Directory.GetFiles("ffmpeg_temp", "ffmpeg.exe", SearchOption.AllDirectories)[0];
-                    File.Copy(exe, "ffmpeg.exe");
-                    Directory.Delete("ffmpeg_temp", true);
-                    File.Delete("ffmpeg.zip");
-                    StatusText.Text = "Ready. FFmpeg downloaded.";
-                } catch (Exception ex) {
-                    StatusText.Text = "Error downloading FFmpeg: " + ex.Message;
-                    MessageBox.Show("Failed to download FFmpeg. Please check your internet connection and restart the app.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                }
+                StatusText.Text = "Error: FFmpeg not found!";
+                MessageBox.Show("FFmpeg is missing from the application folder. Please reinstall the app.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            } else {
+                StatusText.Text = "Ready. V Rec is fully operational.";
             }
         }
 
@@ -61,6 +49,11 @@ namespace ScreenRecorderApp {
         }
 
         private void StartRec_Click(object sender, RoutedEventArgs e) {
+            if (!File.Exists("ffmpeg.exe")) {
+                MessageBox.Show("FFmpeg is missing. Cannot start recording.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
             if (isRecording && !isPaused) return;
             if (!isRecording) {
                 segmentCount = 0;
@@ -110,7 +103,6 @@ namespace ScreenRecorderApp {
                     File.Move(System.IO.Path.Combine("temp_segments", "seg_0.mp4"), finalVideo);
                 }
 
-                // Generate unique filename with timestamp
                 string timestamp = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss");
                 string finalFilename = "VRec_" + timestamp + ".mp4";
 
