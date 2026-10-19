@@ -3,6 +3,6 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         WindowStyle="None" AllowsTransparency="True" Background="Transparent"
         Topmost="True" WindowState="Maximized" ShowInTaskbar="False"
-        IsHitTestVisible="False"> <!-- Crucial: Allows mouse clicks to pass through to apps -->
-    <Canvas x:Name="DrawCanvas" Background="Transparent"/>
+        IsHitTestVisible="False">
+    <Polyline x:Name="DrawLine" Stroke="#E60000" StrokeThickness="4" StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
 </Window>
