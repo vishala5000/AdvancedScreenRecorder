@@ -12,7 +12,14 @@
   <ItemGroup>
     <PackageReference Include="NAudio" Version="2.2.1" />
     <Resource Include="icon.png" />
-    <!-- Required for ZipFile extraction in .NET Framework -->
     <Reference Include="System.IO.Compression.FileSystem" />
+    
+    <!-- Embed Background Music and Click Sound -->
+    <Content Include="bg.mp3">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="click.wav">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 </Project>
