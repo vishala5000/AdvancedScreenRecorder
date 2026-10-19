@@ -12,13 +12,6 @@ using System.Media;
 namespace ScreenRecorderApp {
     public partial class ClickOverlay : Window {
         [DllImport("user32.dll")] private static extern short GetAsyncKeyState(int vKey);
-        [DllImport("user32.dll")] private static extern bool GetCursorPos(out POINT lpPoint);
-        
-        [StructLayout(LayoutKind.Sequential)]
-        public struct POINT {
-            public int X;
-            public int Y;
-        }
         
         private DispatcherTimer timer;
         private bool wasLeftDown = false;
@@ -57,17 +50,21 @@ namespace ScreenRecorderApp {
                 bool leftDown = (GetAsyncKeyState(0x01) & 0x8000) != 0;
                 bool rightDown = (GetAsyncKeyState(0x02) & 0x8000) != 0;
                 
-                // Get actual cursor position from Windows API
-                POINT cursorPos;
-                GetCursorPos(out cursorPos);
-                Point pos = new Point(cursorPos.X, cursorPos.Y);
+                // Get actual cursor position
+                Point screenPos = new Point(
+                    System.Windows.Forms.Cursor.Position.X,
+                    System.Windows.Forms.Cursor.Position.Y
+                );
+                
+                // CORRECTLY convert to window coordinates
+                Point windowPos = this.PointFromScreen(screenPos);
 
                 if (leftDown && !wasLeftDown) { 
-                    SpawnRipple(pos, false); 
+                    SpawnRipple(windowPos, false); 
                     clickPlayer.Play(); 
                 }
                 if (rightDown && !wasRightDown) { 
-                    SpawnRipple(pos, true); 
+                    SpawnRipple(windowPos, true); 
                     clickPlayer.Play(); 
                 }
 
