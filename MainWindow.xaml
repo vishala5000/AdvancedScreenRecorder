@@ -1,7 +1,7 @@
 <Window x:Class="ScreenRecorderApp.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="V Rec" Height="400" Width="350"
+        Title="V Rec" Height="280" Width="650"
         WindowStyle="None" AllowsTransparency="True" Background="#121212" 
         Foreground="White" WindowStartupLocation="CenterScreen"
         Icon="icon.png">
@@ -11,7 +11,8 @@
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
         
-        <Grid Grid.Row="0" Background="#000000">
+        <!-- Draggable Title Bar -->
+        <Grid Grid.Row="0" Background="#000000" MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
             <TextBlock Text="V REC | 1080p HD" VerticalAlignment="Center" Margin="15,0" FontWeight="Bold" Foreground="#E60000"/>
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                 <Button Content="_" Width="40" Height="40" Background="#121212" Foreground="White" BorderThickness="0" Click="Minimize_Click" FontSize="16"/>
@@ -19,12 +20,15 @@
             </StackPanel>
         </Grid>
 
-        <StackPanel Grid.Row="1" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="20">
-            <Button x:Name="StartRecButton" Content="START RECORDING" Height="45" Margin="0,10" Background="#E60000" Foreground="White" BorderThickness="0" FontSize="14" FontWeight="Bold" Click="StartRec_Click"/>
-            <Button Content="PAUSE RECORDING" Height="45" Margin="0,10" Background="#333333" Foreground="White" BorderThickness="0" FontSize="14" Click="PauseRec_Click"/>
-            <Button Content="STOP RECORDING" Height="45" Margin="0,10" Background="#E60000" Foreground="White" BorderThickness="0" FontSize="14" FontWeight="Bold" Click="StopRec_Click"/>
-            <Button Content="DRAW ON SCREEN" Height="45" Margin="0,10" Background="#333333" Foreground="White" BorderThickness="0" FontSize="14" Click="Draw_Click"/>
-            <TextBlock x:Name="StatusText" Text="Ready. Ensure bg.mp3 is in folder." Margin="0,20,0,0" TextAlignment="Center" Foreground="#AAAAAA"/>
+        <!-- Horizontal Button Bar -->
+        <StackPanel Grid.Row="1" Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="20">
+            <Button x:Name="StartRecButton" Content="START" Width="130" Height="45" Margin="5,0" Background="#E60000" Foreground="White" BorderThickness="0" FontSize="14" FontWeight="Bold" Click="StartRec_Click"/>
+            <Button Content="PAUSE" Width="130" Height="45" Margin="5,0" Background="#333333" Foreground="White" BorderThickness="0" FontSize="14" Click="PauseRec_Click"/>
+            <Button Content="STOP" Width="130" Height="45" Margin="5,0" Background="#E60000" Foreground="White" BorderThickness="0" FontSize="14" FontWeight="Bold" Click="StopRec_Click"/>
+            <Button Content="DRAW" Width="130" Height="45" Margin="5,0" Background="#333333" Foreground="White" BorderThickness="0" FontSize="14" Click="Draw_Click"/>
         </StackPanel>
+
+        <!-- Status Text -->
+        <TextBlock x:Name="StatusText" Grid.Row="1" Text="Ready. V Rec is fully operational." VerticalAlignment="Bottom" HorizontalAlignment="Center" Margin="0,0,0,20" TextAlignment="Center" Foreground="#AAAAAA"/>
     </Grid>
 </Window>
