@@ -3,24 +3,26 @@
     <OutputType>WinExe</OutputType>
     <TargetFramework>net48</TargetFramework>
     <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
     <LangVersion>latest</LangVersion>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AssemblyName>V Rec</AssemblyName>
     <Product>V Rec</Product>
     <Title>V Rec</Title>
+    <ApplicationIcon Condition="Exists('icon.ico')">icon.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="NAudio" Version="2.2.1" />
     <Reference Include="System.IO.Compression.FileSystem" />
     
-    <!-- Optional: Only included if files exist -->
     <Resource Include="icon.png" Condition="Exists('icon.png')" />
     <Content Include="bg.mp3" Condition="Exists('bg.mp3')">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    
-    <!-- FFmpeg is downloaded during build, so it always exists -->
     <Content Include="ffmpeg.exe">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="icon.ico" Condition="Exists('icon.ico')">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
