@@ -1,33 +1,151 @@
 <Window x:Class="ScreenRecorderApp.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="V Rec" Height="280" Width="650"
-        WindowStyle="None" AllowsTransparency="True" Background="#121212" 
-        Foreground="White" WindowStartupLocation="CenterScreen">
-    <Grid>
-        <Grid.RowDefinitions>
-            <RowDefinition Height="40"/>
-            <RowDefinition Height="*"/>
-        </Grid.RowDefinitions>
+        Title="V Rec" Height="420" Width="700"
+        WindowStyle="None" AllowsTransparency="True" 
+        Background="Transparent"
+        Foreground="White" WindowStartupLocation="CenterScreen"
+        Icon="icon.png">
+    
+    <!-- Main container with rounded corners and shadow -->
+    <Border CornerRadius="12" Background="#1A1A1A" BorderBrush="#333333" BorderThickness="1">
+        <Border.Effect>
+            <DropShadowEffect BlurRadius="20" ShadowDepth="0" Opacity="0.5" Color="Black"/>
+        </Border.Effect>
         
-        <!-- Draggable Title Bar -->
-        <Grid Grid.Row="0" Background="#000000" MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
-            <TextBlock Text="V REC | 1080p HD" VerticalAlignment="Center" Margin="15,0" FontWeight="Bold" Foreground="#E60000"/>
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                <Button Content="_" Width="40" Height="40" Background="#121212" Foreground="White" BorderThickness="0" Click="Minimize_Click" FontSize="16"/>
-                <Button Content="X" Width="40" Height="40" Background="#E60000" Foreground="White" BorderThickness="0" Click="Exit_Click" FontSize="16"/>
-            </StackPanel>
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="50"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            
+            <!-- Draggable Title Bar with rounded top corners -->
+            <Border Grid.Row="0" Background="#000000" CornerRadius="12,12,0,0" MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
+                <Grid>
+                    <TextBlock Text="V REC | 1080p HD" VerticalAlignment="Center" Margin="20,0" FontWeight="Bold" FontSize="16" Foreground="#E60000"/>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                        <Button Content="−" Width="50" Height="50" Background="Transparent" Foreground="White" BorderThickness="0" Click="Minimize_Click" FontSize="20" FontWeight="Bold"/>
+                        <Button Content="✕" Width="50" Height="50" Background="#E60000" Foreground="White" BorderThickness="0" Click="Exit_Click" FontSize="18" FontWeight="Bold"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- Main Content Area -->
+            <Grid Grid.Row="1" Margin="30,20">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                
+                <!-- Control Buttons -->
+                <StackPanel Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,10">
+                    <Button x:Name="StartRecButton" Height="55" Width="140" Margin="8,0" Background="#E60000" Foreground="White" BorderThickness="0" FontSize="15" FontWeight="Bold" Click="StartRec_Click">
+                        <Button.Content>
+                            <StackPanel>
+                                <TextBlock Text="START" HorizontalAlignment="Center" FontSize="15" FontWeight="Bold"/>
+                                <TextBlock Text="Ctrl+Shift+R" HorizontalAlignment="Center" FontSize="10" Opacity="0.7" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </Button.Content>
+                        <Button.Style>
+                            <Style TargetType="Button">
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border Background="{TemplateBinding Background}" CornerRadius="8">
+                                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                            </Border>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+                    
+                    <Button Height="55" Width="140" Margin="8,0" Background="#333333" Foreground="White" BorderThickness="0" FontSize="15" Click="PauseRec_Click">
+                        <Button.Content>
+                            <StackPanel>
+                                <TextBlock Text="PAUSE" HorizontalAlignment="Center" FontSize="15" FontWeight="Bold"/>
+                                <TextBlock Text="Ctrl+Shift+P" HorizontalAlignment="Center" FontSize="10" Opacity="0.7" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </Button.Content>
+                        <Button.Style>
+                            <Style TargetType="Button">
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border Background="{TemplateBinding Background}" CornerRadius="8">
+                                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                            </Border>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+                    
+                    <Button Height="55" Width="140" Margin="8,0" Background="#E60000" Foreground="White" BorderThickness="0" FontSize="15" FontWeight="Bold" Click="StopRec_Click">
+                        <Button.Content>
+                            <StackPanel>
+                                <TextBlock Text="STOP" HorizontalAlignment="Center" FontSize="15" FontWeight="Bold"/>
+                                <TextBlock Text="Ctrl+Shift+S" HorizontalAlignment="Center" FontSize="10" Opacity="0.7" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </Button.Content>
+                        <Button.Style>
+                            <Style TargetType="Button">
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border Background="{TemplateBinding Background}" CornerRadius="8">
+                                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                            </Border>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+                    
+                    <Button Height="55" Width="140" Margin="8,0" Background="#333333" Foreground="White" BorderThickness="0" FontSize="15" Click="Draw_Click">
+                        <Button.Content>
+                            <StackPanel>
+                                <TextBlock Text="DRAW" HorizontalAlignment="Center" FontSize="15" FontWeight="Bold"/>
+                                <TextBlock Text="Ctrl+Shift+D" HorizontalAlignment="Center" FontSize="10" Opacity="0.7" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </Button.Content>
+                        <Button.Style>
+                            <Style TargetType="Button">
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border Background="{TemplateBinding Background}" CornerRadius="8">
+                                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                            </Border>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+                </StackPanel>
+                
+                <!-- Status Text -->
+                <TextBlock x:Name="StatusText" Grid.Row="1" Text="Initializing..." VerticalAlignment="Center" HorizontalAlignment="Center" TextAlignment="Center" Foreground="#AAAAAA" FontSize="14"/>
+            </Grid>
+            
+            <!-- Shortcut Help Section -->
+            <Border Grid.Row="2" Background="#0D0D0D" CornerRadius="0,0,12,12" Padding="20,15">
+                <StackPanel>
+                    <TextBlock Text="⌨️ Keyboard Shortcuts" FontSize="13" FontWeight="Bold" Foreground="#E60000" Margin="0,0,0,10"/>
+                    <WrapPanel>
+                        <TextBlock Text="Ctrl+Shift+R = Start  |  " Foreground="#888888" FontSize="11"/>
+                        <TextBlock Text="Ctrl+Shift+P = Pause  |  " Foreground="#888888" FontSize="11"/>
+                        <TextBlock Text="Ctrl+Shift+S = Stop  |  " Foreground="#888888" FontSize="11"/>
+                        <TextBlock Text="Ctrl+Shift+D = Draw  |  " Foreground="#888888" FontSize="11"/>
+                        <TextBlock Text="Esc = Stop Drawing" Foreground="#888888" FontSize="11"/>
+                    </WrapPanel>
+                </StackPanel>
+            </Border>
         </Grid>
-
-        <!-- Horizontal Button Bar -->
-        <StackPanel Grid.Row="1" Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="20">
-            <Button x:Name="StartRecButton" Content="START" Width="130" Height="45" Margin="5,0" Background="#E60000" Foreground="White" BorderThickness="0" FontSize="14" FontWeight="Bold" Click="StartRec_Click"/>
-            <Button Content="PAUSE" Width="130" Height="45" Margin="5,0" Background="#333333" Foreground="White" BorderThickness="0" FontSize="14" Click="PauseRec_Click"/>
-            <Button Content="STOP" Width="130" Height="45" Margin="5,0" Background="#E60000" Foreground="White" BorderThickness="0" FontSize="14" FontWeight="Bold" Click="StopRec_Click"/>
-            <Button Content="DRAW" Width="130" Height="45" Margin="5,0" Background="#333333" Foreground="White" BorderThickness="0" FontSize="14" Click="Draw_Click"/>
-        </StackPanel>
-
-        <!-- Status Text -->
-        <TextBlock x:Name="StatusText" Grid.Row="1" Text="Initializing..." VerticalAlignment="Bottom" HorizontalAlignment="Center" Margin="0,0,0,20" TextAlignment="Center" Foreground="#AAAAAA"/>
-    </Grid>
+    </Border>
 </Window>
