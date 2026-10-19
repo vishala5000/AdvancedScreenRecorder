@@ -8,12 +8,10 @@
         ShowInTaskbar="False"
         IsHitTestVisible="False"
         WindowState="Maximized">
-    <Grid>
-        <Polyline x:Name="DrawLine" 
-                  Stroke="#E60000" 
-                  StrokeThickness="4" 
-                  StrokeLineJoin="Round" 
-                  StrokeStartLineCap="Round" 
-                  StrokeEndLineCap="Round"/>
-    </Grid>
+    <Polyline x:Name="DrawLine" 
+              Stroke="#E60000" 
+              StrokeThickness="4" 
+              StrokeLineJoin="Round" 
+              StrokeStartLineCap="Round" 
+              StrokeEndLineCap="Round"/>
 </Window>
