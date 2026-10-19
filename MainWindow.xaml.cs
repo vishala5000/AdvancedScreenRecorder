@@ -87,23 +87,45 @@ namespace ScreenRecorderApp {
                 trayMenu.BackColor = System.Drawing.Color.FromArgb(26, 26, 26);
                 trayMenu.ForeColor = System.Drawing.Color.White;
                 
-                trayMenu.Items.Add(new Forms.ToolStripMenuItem("📺 Show V Rec", (s, e) => ShowWindow()));
+                var showItem = new Forms.ToolStripMenuItem("📺 Show V Rec");
+                showItem.Click += (s, e) => ShowWindow();
+                
+                var startItem = new Forms.ToolStripMenuItem("▶ Start");
+                startItem.Click += (s, e) => Dispatcher.Invoke(() => StartRec_Click(null, null));
+                
+                var pauseItem = new Forms.ToolStripMenuItem("⏸ Pause");
+                pauseItem.Click += (s, e) => Dispatcher.Invoke(() => PauseRec_Click(null, null));
+                
+                var stopItem = new Forms.ToolStripMenuItem("⏹ Stop");
+                stopItem.Click += (s, e) => Dispatcher.Invoke(() => StopRec_Click(null, null));
+                
+                var drawItem = new Forms.ToolStripMenuItem("✏️ Draw");
+                drawItem.Click += (s, e) => Dispatcher.Invoke(() => Draw_Click(null, null));
+                
+                var areaItem = new Forms.ToolStripMenuItem("📐 Area");
+                areaItem.Click += (s, e) => Dispatcher.Invoke(() => SelectArea_Click(null, null));
+                
+                var exitItem = new Forms.ToolStripMenuItem("❌ Exit");
+                exitItem.Click += (s, e) => ExitApplication();
+                
+                trayMenu.Items.Add(showItem);
                 trayMenu.Items.Add(new Forms.ToolStripSeparator());
-                trayMenu.Items.Add(new Forms.ToolStripMenuItem("▶ Start", (s, e) => Dispatcher.Invoke(() => StartRec_Click(null, null))));
-                trayMenu.Items.Add(new Forms.ToolStripMenuItem("⏸ Pause", (s, e) => Dispatcher.Invoke(() => PauseRec_Click(null, null))));
-                trayMenu.Items.Add(new Forms.ToolStripMenuItem("⏹ Stop", (s, e) => Dispatcher.Invoke(() => StopRec_Click(null, null))));
-                trayMenu.Items.Add(new Forms.ToolStripMenuItem("✏️ Draw", (s, e) => Dispatcher.Invoke(() => Draw_Click(null, null))));
-                trayMenu.Items.Add(new Forms.ToolStripMenuItem("📐 Area", (s, e) => Dispatcher.Invoke(() => SelectArea_Click(null, null))));
+                trayMenu.Items.Add(startItem);
+                trayMenu.Items.Add(pauseItem);
+                trayMenu.Items.Add(stopItem);
+                trayMenu.Items.Add(drawItem);
+                trayMenu.Items.Add(areaItem);
                 trayMenu.Items.Add(new Forms.ToolStripSeparator());
-                trayMenu.Items.Add(new Forms.ToolStripMenuItem("❌ Exit", (s, e) => ExitApplication()));
+                trayMenu.Items.Add(exitItem);
                 
                 trayIcon = new Forms.NotifyIcon { Visible = true, ContextMenuStrip = trayMenu, Text = "V Rec - Ready" };
                 
                 string iconFilePath = Path.Combine(appFolder, "icon.ico");
                 string iconPngPath = Path.Combine(appFolder, "icon.png");
                 
-                if (File.Exists(iconFilePath)) trayIcon.Icon = new System.Drawing.Icon(iconFilePath);
-                else if (File.Exists(iconPngPath)) {
+                if (File.Exists(iconFilePath)) {
+                    trayIcon.Icon = new System.Drawing.Icon(iconFilePath);
+                } else if (File.Exists(iconPngPath)) {
                     using (var bmp = new System.Drawing.Bitmap(iconPngPath)) {
                         trayIcon.Icon = System.Drawing.Icon.FromHandle(bmp.GetHicon());
                     }
@@ -252,7 +274,6 @@ namespace ScreenRecorderApp {
                 ffmpegProcess.Start();
                 ffmpegProcess.BeginErrorReadLine();
                 
-                // Give FFmpeg a moment to initialize
                 Thread.Sleep(300);
                 
                 if (ffmpegProcess.HasExited) {
@@ -301,7 +322,6 @@ namespace ScreenRecorderApp {
             await Task.Run(() => {
                 try {
                     string finalVideo = Path.Combine(tempFolder, "final_video.mp4");
-                    // FIXED: Changed > 1000 to > 0 to allow short test recordings to save
                     var validSegments = Directory.GetFiles(tempFolder, "seg_*.mp4").Where(f => new FileInfo(f).Length > 0).ToArray();
                     
                     if (validSegments.Length == 0) throw new Exception("No video data recorded.");
@@ -340,7 +360,7 @@ namespace ScreenRecorderApp {
                 } catch (Exception ex) {
                     Log("Stop Error: " + ex.Message);
                     Dispatcher.Invoke(() => {
-                        this.Show(); // Bring window back so user sees the error
+                        this.Show();
                         MessageBox.Show("Save failed: " + ex.Message + "\n\nCheck: " + logFile, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                     });
                 }
