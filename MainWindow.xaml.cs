@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Runtime.InteropServices;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Threading;
@@ -41,21 +42,18 @@ namespace ScreenRecorderApp {
         }
 
         private void InitDrawTimer() {
-            drawTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) }; // 60fps
+            drawTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
             drawTimer.Tick += DrawTimer_Tick;
         }
 
         private void DrawTimer_Tick(object sender, EventArgs e) {
             if ((GetAsyncKeyState(VK_ESCAPE) & 0x8000) != 0) {
-                if (overlay != null && overlay.IsVisible) {
-                    overlay.StopDrawing();
-                }
+                if (overlay != null && overlay.IsVisible) overlay.StopDrawing();
             }
         }
 
         private void StartRec_Click(object sender, RoutedEventArgs e) {
             if (isRecording && !isPaused) return;
-            
             if (!isRecording) {
                 segmentCount = 0;
                 if (Directory.Exists("temp_segments")) Directory.Delete("temp_segments", true);
@@ -63,8 +61,7 @@ namespace ScreenRecorderApp {
             }
 
             string outFile = Path.Combine("temp_segments", "seg_" + segmentCount + ".mp4");
-            // Using concatenation to prevent markdown backslash stripping issues
-            string args = "-f gdigrab -framerate 30 -video_size 1920x1080 -draw_mouse 1 -i desktop -c:v libx264 -preset ultrafast -pix_fmt yuv420p \"" + outFile + "\"";
+            string args = "-f gdigrab -framerate 30 -video_size 1920x1080 -draw_mouse 1 -i desktop -c:v libx264 -preset ultrafast -tune zerolatency -crf 23 -pix_fmt yuv420p \"" + outFile + "\"";
             
             ffmpegProcess = new Process {
                 StartInfo = new ProcessStartInfo("ffmpeg.exe", args) { UseShellExecute = false, CreateNoWindow = true }
@@ -80,48 +77,47 @@ namespace ScreenRecorderApp {
         private void PauseRec_Click(object sender, RoutedEventArgs e) {
             if (!isRecording || isPaused) return;
             isPaused = true;
-            if (ffmpegProcess != null && !ffmpegProcess.HasExited) {
-                ffmpegProcess.Kill();
-            }
+            if (ffmpegProcess != null && !ffmpegProcess.HasExited) ffmpegProcess.Kill();
             StatusText.Text = "Paused.";
         }
 
-        private void StopRec_Click(object sender, RoutedEventArgs e) {
+        private async void StopRec_Click(object sender, RoutedEventArgs e) {
             if (!isRecording) return;
             if (ffmpegProcess != null && !ffmpegProcess.HasExited) ffmpegProcess.Kill();
             
-            StatusText.Text = "Processing & Mixing Audio...";
-            string finalVideo = Path.Combine("temp_segments", "final_video.mp4");
+            StatusText.Text = "Processing & Mixing Audio... Please wait.";
+            StartRecButton.IsEnabled = false; // Prevent UI hangs from double clicks
             
-            // Concatenate segments if paused
-            if (segmentCount > 1) {
-                string listFile = Path.Combine("temp_segments", "list.txt");
-                var files = Directory.GetFiles("temp_segments", "seg_*.mp4").OrderBy(f => f);
-                File.WriteAllLines(listFile, files.Select(f => "file '" + Path.GetFullPath(f) + "'"));
-                Process.Start("ffmpeg.exe", "-f concat -safe 0 -i \"" + listFile + "\" -c copy \"" + finalVideo + "\"").WaitForExit();
-            } else {
-                File.Move(Path.Combine("temp_segments", "seg_0.mp4"), finalVideo);
-            }
+            // Run heavy file operations and FFmpeg mixing on a background thread
+            await Task.Run(() => {
+                string finalVideo = Path.Combine("temp_segments", "final_video.mp4");
+                
+                if (segmentCount > 1) {
+                    string listFile = Path.Combine("temp_segments", "list.txt");
+                    var files = Directory.GetFiles("temp_segments", "seg_*.mp4").OrderBy(f => f);
+                    File.WriteAllLines(listFile, files.Select(f => "file '" + Path.GetFullPath(f) + "'"));
+                    Process.Start("ffmpeg.exe", "-f concat -safe 0 -i \"" + listFile + "\" -c copy \"" + finalVideo + "\"").WaitForExit();
+                } else {
+                    File.Move(Path.Combine("temp_segments", "seg_0.mp4"), finalVideo);
+                }
 
-            // Mix with bg.mp3 (loop if short, trim if long)
-            if (File.Exists("bg.mp3")) {
-                string mixArgs = "-i \"" + finalVideo + "\" -stream_loop -1 -i bg.mp3 -c:v copy -c:a aac -shortest -map 0:v:0 -map 1:a:0 \"Final_Recording.mp4\"";
-                Process.Start("ffmpeg.exe", mixArgs).WaitForExit();
-                File.Delete(finalVideo);
-                StatusText.Text = "Saved: Final_Recording.mp4";
-            } else {
-                File.Move(finalVideo, "Final_Recording.mp4");
-                StatusText.Text = "Saved: Final_Recording.mp4 (No bg.mp3 found)";
-            }
-            
+                if (File.Exists("bg.mp3")) {
+                    string mixArgs = "-i \"" + finalVideo + "\" -stream_loop -1 -i bg.mp3 -c:v copy -c:a aac -shortest -map 0:v:0 -map 1:a:0 \"Final_Recording.mp4\"";
+                    Process.Start("ffmpeg.exe", mixArgs).WaitForExit();
+                    File.Delete(finalVideo);
+                } else {
+                    File.Move(finalVideo, "Final_Recording.mp4");
+                }
+            });
+
+            StatusText.Text = "Saved: Final_Recording.mp4";
+            StartRecButton.IsEnabled = true;
             isRecording = false;
             isPaused = false;
         }
 
         private void Draw_Click(object sender, RoutedEventArgs e) {
-            if (overlay == null) {
-                overlay = new DrawingOverlay();
-            }
+            if (overlay == null) overlay = new DrawingOverlay();
             overlay.Show();
             overlay.StartDrawing();
             drawTimer.Start();
