@@ -19,87 +19,97 @@ namespace ScreenRecorderApp {
         private bool wasRightDown = false;
         private ClickSoundPlayer clickPlayer;
 
-        // Static flag to suppress click detection when drawing is active
         public static bool IsSuppressed { get; set; } = false;
 
         public ClickOverlay() {
             InitializeComponent();
+            this.Loaded += ClickOverlay_Loaded;
+        }
+
+        private void ClickOverlay_Loaded(object sender, RoutedEventArgs e) {
             timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
             timer.Tick += Timer_Tick;
             clickPlayer = new ClickSoundPlayer();
         }
 
-        public void Start() { this.Show(); timer.Start(); }
+        public void Start() { 
+            this.Show();
+            this.Topmost = true;
+            if (timer != null) timer.Start(); 
+        }
         
         public void Stop() { 
-            timer.Stop(); 
+            if (timer != null) timer.Stop(); 
             ClickCanvas.Children.Clear(); 
             this.Hide(); 
         }
 
         private void Timer_Tick(object sender, EventArgs e) {
-            // Suppress click detection when drawing is active
             if (IsSuppressed) return;
 
-            bool leftDown = (GetAsyncKeyState(0x01) & 0x8000) != 0;
-            bool rightDown = (GetAsyncKeyState(0x02) & 0x8000) != 0;
-            var pos = PointToScreen(Mouse.GetPosition(this));
+            try {
+                bool leftDown = (GetAsyncKeyState(0x01) & 0x8000) != 0;
+                bool rightDown = (GetAsyncKeyState(0x02) & 0x8000) != 0;
+                var pos = PointToScreen(Mouse.GetPosition(this));
 
-            if (leftDown && !wasLeftDown) { 
-                SpawnRipple(pos, false); 
-                clickPlayer.Play(); 
-            }
-            if (rightDown && !wasRightDown) { 
-                SpawnRipple(pos, true); 
-                clickPlayer.Play(); 
-            }
+                if (leftDown && !wasLeftDown) { 
+                    SpawnRipple(pos, false); 
+                    clickPlayer.Play(); 
+                }
+                if (rightDown && !wasRightDown) { 
+                    SpawnRipple(pos, true); 
+                    clickPlayer.Play(); 
+                }
 
-            wasLeftDown = leftDown;
-            wasRightDown = rightDown;
+                wasLeftDown = leftDown;
+                wasRightDown = rightDown;
+            } catch { }
         }
 
         private void SpawnRipple(Point pos, bool isRightClick) {
-            double size = 40;
-            Ellipse ripple = new Ellipse {
-                Stroke = isRightClick ? Brushes.Cyan : Brushes.Red,
-                StrokeThickness = 3, 
-                Width = size, 
-                Height = size,
-                RenderTransformOrigin = new Point(0.5, 0.5)
-            };
-            ripple.RenderTransform = new ScaleTransform(0.1, 0.1);
-            Canvas.SetLeft(ripple, pos.X - size / 2);
-            Canvas.SetTop(ripple, pos.Y - size / 2);
-            ClickCanvas.Children.Add(ripple);
+            try {
+                double size = 40;
+                Ellipse ripple = new Ellipse {
+                    Stroke = isRightClick ? Brushes.Cyan : Brushes.Red,
+                    StrokeThickness = 3, 
+                    Width = size, 
+                    Height = size,
+                    RenderTransformOrigin = new Point(0.5, 0.5)
+                };
+                ripple.RenderTransform = new ScaleTransform(0.1, 0.1);
+                Canvas.SetLeft(ripple, pos.X - size / 2);
+                Canvas.SetTop(ripple, pos.Y - size / 2);
+                ClickCanvas.Children.Add(ripple);
 
-            var scaleX = new DoubleAnimation { 
-                From = 0.1, To = 1.5, 
-                Duration = TimeSpan.FromSeconds(0.4), 
-                EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut } 
-            };
-            var scaleY = new DoubleAnimation { 
-                From = 0.1, To = 1.5, 
-                Duration = TimeSpan.FromSeconds(0.4), 
-                EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut } 
-            };
-            var opacity = new DoubleAnimation { 
-                From = 1, To = 0, 
-                Duration = TimeSpan.FromSeconds(0.4) 
-            };
+                var scaleX = new DoubleAnimation { 
+                    From = 0.1, To = 1.5, 
+                    Duration = TimeSpan.FromSeconds(0.4), 
+                    EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut } 
+                };
+                var scaleY = new DoubleAnimation { 
+                    From = 0.1, To = 1.5, 
+                    Duration = TimeSpan.FromSeconds(0.4), 
+                    EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut } 
+                };
+                var opacity = new DoubleAnimation { 
+                    From = 1, To = 0, 
+                    Duration = TimeSpan.FromSeconds(0.4) 
+                };
 
-            Storyboard.SetTarget(scaleX, ripple.RenderTransform);
-            Storyboard.SetTargetProperty(scaleX, new PropertyPath(ScaleTransform.ScaleXProperty));
-            Storyboard.SetTarget(scaleY, ripple.RenderTransform);
-            Storyboard.SetTargetProperty(scaleY, new PropertyPath(ScaleTransform.ScaleYProperty));
-            Storyboard.SetTarget(opacity, ripple);
-            Storyboard.SetTargetProperty(opacity, new PropertyPath(UIElement.OpacityProperty));
+                Storyboard.SetTarget(scaleX, ripple.RenderTransform);
+                Storyboard.SetTargetProperty(scaleX, new PropertyPath(ScaleTransform.ScaleXProperty));
+                Storyboard.SetTarget(scaleY, ripple.RenderTransform);
+                Storyboard.SetTargetProperty(scaleY, new PropertyPath(ScaleTransform.ScaleYProperty));
+                Storyboard.SetTarget(opacity, ripple);
+                Storyboard.SetTargetProperty(opacity, new PropertyPath(UIElement.OpacityProperty));
 
-            var sb = new Storyboard();
-            sb.Children.Add(scaleX); 
-            sb.Children.Add(scaleY); 
-            sb.Children.Add(opacity);
-            sb.Completed += (s, ev) => ClickCanvas.Children.Remove(ripple);
-            sb.Begin();
+                var sb = new Storyboard();
+                sb.Children.Add(scaleX); 
+                sb.Children.Add(scaleY); 
+                sb.Children.Add(opacity);
+                sb.Completed += (s, ev) => ClickCanvas.Children.Remove(ripple);
+                sb.Begin();
+            } catch { }
         }
     }
 
@@ -107,13 +117,15 @@ namespace ScreenRecorderApp {
         private SoundPlayer player;
         
         public ClickSoundPlayer() {
-            string tempWav = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "vrec_click.wav");
-            if (!System.IO.File.Exists(tempWav)) GenerateClickWav(tempWav);
-            player = new SoundPlayer(tempWav);
+            try {
+                string tempWav = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "vrec_click.wav");
+                if (!System.IO.File.Exists(tempWav)) GenerateClickWav(tempWav);
+                player = new SoundPlayer(tempWav);
+            } catch { }
         }
         
         public void Play() { 
-            try { player.Play(); } catch { } 
+            try { player?.Play(); } catch { } 
         }
 
         private void GenerateClickWav(string path) {
