@@ -1,6 +1,5 @@
 using System;
 using System.Diagnostics;
-using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -46,10 +45,8 @@ namespace ScreenRecorderApp {
         private int screenWidth;
         private int screenHeight;
         
-        // Area selection
         private Rect? selectedArea = null;
         
-        // System Tray Icon
         private Forms.NotifyIcon trayIcon;
         private Forms.ContextMenuStrip trayMenu;
 
@@ -140,19 +137,19 @@ namespace ScreenRecorderApp {
                 string iconFilePath = Path.Combine(appFolder, "icon.ico");
                 string iconPngPath = Path.Combine(appFolder, "icon.png");
                 
+                // EXPLICITLY use System.Drawing types to avoid WPF conflicts
                 if (File.Exists(iconFilePath)) {
-                    trayIcon.Icon = new Icon(iconFilePath);
+                    trayIcon.Icon = new System.Drawing.Icon(iconFilePath);
                 } else if (File.Exists(iconPngPath)) {
-                    using (var bmp = new Bitmap(iconPngPath)) {
+                    using (var bmp = new System.Drawing.Bitmap(iconPngPath)) {
                         IntPtr hIcon = bmp.GetHicon();
-                        trayIcon.Icon = Icon.FromHandle(hIcon);
+                        trayIcon.Icon = System.Drawing.Icon.FromHandle(hIcon);
                     }
                 } else {
                     trayIcon.Icon = System.Drawing.SystemIcons.Application;
                 }
                 
                 trayIcon.DoubleClick += (s, e) => ShowWindow();
-                
                 Log("System tray icon initialized");
             } catch (Exception ex) {
                 Log("Failed to initialize tray icon: " + ex.Message);
@@ -169,78 +166,50 @@ namespace ScreenRecorderApp {
 
         private void MinimizeToTray() {
             this.Hide();
-            trayIcon.ShowBalloonTip(
-                2000, 
-                "V Rec", 
-                "App is running in system tray. Right-click the icon for options.", 
-                Forms.ToolTipIcon.Info
-            );
+            trayIcon.ShowBalloonTip(2000, "V Rec", "App is running in system tray.", Forms.ToolTipIcon.Info);
         }
 
         private void ExitApplication() {
             try {
-                if (ffmpegProcess != null && !ffmpegProcess.HasExited) {
-                    ffmpegProcess.Kill();
-                }
+                if (ffmpegProcess != null && !ffmpegProcess.HasExited) ffmpegProcess.Kill();
             } catch { }
-            
             try {
                 if (trayIcon != null) {
                     trayIcon.Visible = false;
                     trayIcon.Dispose();
                 }
             } catch { }
-            
             Application.Current.Shutdown();
         }
 
         private void MainWindow_StateChanged(object sender, EventArgs e) {
-            if (this.WindowState == WindowState.Minimized) {
-                MinimizeToTray();
-            }
+            if (this.WindowState == WindowState.Minimized) MinimizeToTray();
         }
 
         private void MainWindow_Loaded(object sender, RoutedEventArgs e) {
             var helper = new WindowInteropHelper(this);
             IntPtr hWnd = helper.Handle;
             
-            RegisterHotKey(hWnd, HOTKEY_START, MOD_CONTROL | MOD_SHIFT, 0x52); // R
-            RegisterHotKey(hWnd, HOTKEY_PAUSE, MOD_CONTROL | MOD_SHIFT, 0x50); // P
-            RegisterHotKey(hWnd, HOTKEY_STOP, MOD_CONTROL | MOD_SHIFT, 0x53); // S
-            RegisterHotKey(hWnd, HOTKEY_DRAW, MOD_CONTROL | MOD_SHIFT, 0x44); // D
-            RegisterHotKey(hWnd, HOTKEY_SELECT_AREA, MOD_CONTROL | MOD_SHIFT, 0x41); // A
+            RegisterHotKey(hWnd, HOTKEY_START, MOD_CONTROL | MOD_SHIFT, 0x52);
+            RegisterHotKey(hWnd, HOTKEY_PAUSE, MOD_CONTROL | MOD_SHIFT, 0x50);
+            RegisterHotKey(hWnd, HOTKEY_STOP, MOD_CONTROL | MOD_SHIFT, 0x53);
+            RegisterHotKey(hWnd, HOTKEY_DRAW, MOD_CONTROL | MOD_SHIFT, 0x44);
+            RegisterHotKey(hWnd, HOTKEY_SELECT_AREA, MOD_CONTROL | MOD_SHIFT, 0x41);
             
             HwndSource source = HwndSource.FromHwnd(hWnd);
             source.AddHook(HwndHook);
-            
             Log("Global hotkeys registered");
         }
 
         private IntPtr HwndHook(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled) {
             if (msg == WM_HOTKEY) {
                 int hotkeyId = wParam.ToInt32();
-                
                 switch (hotkeyId) {
-                    case HOTKEY_START:
-                        Dispatcher.Invoke(() => StartRec_Click(null, null));
-                        handled = true;
-                        break;
-                    case HOTKEY_PAUSE:
-                        Dispatcher.Invoke(() => PauseRec_Click(null, null));
-                        handled = true;
-                        break;
-                    case HOTKEY_STOP:
-                        Dispatcher.Invoke(() => StopRec_Click(null, null));
-                        handled = true;
-                        break;
-                    case HOTKEY_DRAW:
-                        Dispatcher.Invoke(() => Draw_Click(null, null));
-                        handled = true;
-                        break;
-                    case HOTKEY_SELECT_AREA:
-                        Dispatcher.Invoke(() => SelectArea_Click(null, null));
-                        handled = true;
-                        break;
+                    case HOTKEY_START: Dispatcher.Invoke(() => StartRec_Click(null, null)); handled = true; break;
+                    case HOTKEY_PAUSE: Dispatcher.Invoke(() => PauseRec_Click(null, null)); handled = true; break;
+                    case HOTKEY_STOP: Dispatcher.Invoke(() => StopRec_Click(null, null)); handled = true; break;
+                    case HOTKEY_DRAW: Dispatcher.Invoke(() => Draw_Click(null, null)); handled = true; break;
+                    case HOTKEY_SELECT_AREA: Dispatcher.Invoke(() => SelectArea_Click(null, null)); handled = true; break;
                 }
             }
             return IntPtr.Zero;
@@ -255,52 +224,32 @@ namespace ScreenRecorderApp {
                 UnregisterHotKey(helper.Handle, HOTKEY_DRAW);
                 UnregisterHotKey(helper.Handle, HOTKEY_SELECT_AREA);
             } catch { }
-            
             try {
-                if (trayIcon != null) {
-                    trayIcon.Visible = false;
-                    trayIcon.Dispose();
-                }
+                if (trayIcon != null) { trayIcon.Visible = false; trayIcon.Dispose(); }
             } catch { }
-            
             base.OnClosed(e);
         }
 
         private void Log(string message) {
-            try {
-                string logEntry = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + " - " + message + Environment.NewLine;
-                File.AppendAllText(logFile, logEntry);
-            } catch { }
+            try { File.AppendAllText(logFile, DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + " - " + message + Environment.NewLine); } catch { }
         }
 
         private void UpdateTrayTooltip(string status) {
-            try {
-                if (trayIcon != null) {
-                    trayIcon.Text = "V Rec - " + status;
-                }
-            } catch { }
+            try { if (trayIcon != null) trayIcon.Text = "V Rec - " + status; } catch { }
         }
 
         private void CheckFFmpeg() {
             try {
                 string ffmpegPath = Path.Combine(appFolder, "ffmpeg.exe");
-                Log("Checking FFmpeg at: " + ffmpegPath);
-                
                 if (!File.Exists(ffmpegPath)) {
                     StatusText.Text = "Error: FFmpeg not found!";
-                    Log("FFmpeg NOT FOUND");
                     UpdateTrayTooltip("FFmpeg Missing!");
                     MessageBox.Show("FFmpeg is missing from: " + appFolder, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 } else {
-                    var fileInfo = new FileInfo(ffmpegPath);
-                    Log("FFmpeg found. Size: " + fileInfo.Length + " bytes");
                     StatusText.Text = "Ready. Screen: " + screenWidth + "x" + screenHeight + ". Videos: " + outputFolder;
                     UpdateTrayTooltip("Ready");
                 }
-            } catch (Exception ex) {
-                Log("CheckFFmpeg error: " + ex.Message);
-                StatusText.Text = "Ready.";
-            }
+            } catch { StatusText.Text = "Ready."; }
         }
 
         private void InitDrawTimer() {
@@ -316,30 +265,15 @@ namespace ScreenRecorderApp {
 
         private void SelectArea_Click(object sender, RoutedEventArgs e) {
             try {
-                Log("Opening area selection overlay");
                 var areaSelector = new AreaSelectionOverlay();
                 bool? result = areaSelector.ShowDialog();
-                
                 if (result == true && areaSelector.SelectedArea.HasValue) {
                     selectedArea = areaSelector.SelectedArea.Value;
-                    Log("Area selected: " + selectedArea.Value);
-                    
                     ResetAreaButton.Visibility = Visibility.Visible;
-                    SelectAreaButton.Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(74, 144, 226));
-                    
-                    StatusText.Text = $"Area selected: {(int)selectedArea.Value.Width}x{(int)selectedArea.Value.Height} at ({(int)selectedArea.Value.X},{(int)selectedArea.Value.Y})";
-                    
-                    trayIcon.ShowBalloonTip(
-                        2000, 
-                        "V Rec", 
-                        $"Recording area set to {(int)selectedArea.Value.Width}x{(int)selectedArea.Value.Height}", 
-                        Forms.ToolTipIcon.Info
-                    );
-                } else {
-                    Log("Area selection cancelled");
+                    StatusText.Text = $"Area selected: {(int)selectedArea.Value.Width}x{(int)selectedArea.Value.Height}";
+                    trayIcon.ShowBalloonTip(2000, "V Rec", $"Recording area set to {(int)selectedArea.Value.Width}x{(int)selectedArea.Value.Height}", Forms.ToolTipIcon.Info);
                 }
             } catch (Exception ex) {
-                Log("SelectArea error: " + ex.Message);
                 MessageBox.Show("Error selecting area: " + ex.Message, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
@@ -347,30 +281,23 @@ namespace ScreenRecorderApp {
         private void ResetArea_Click(object sender, RoutedEventArgs e) {
             selectedArea = null;
             ResetAreaButton.Visibility = Visibility.Collapsed;
-            SelectAreaButton.Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(74, 144, 226));
             StatusText.Text = "Recording full screen. Videos saved to: " + outputFolder;
-            Log("Area reset to full screen");
         }
 
         private void StartRec_Click(object sender, RoutedEventArgs e) {
             string ffmpegPath = Path.Combine(appFolder, "ffmpeg.exe");
             if (!File.Exists(ffmpegPath)) {
-                MessageBox.Show("FFmpeg is missing. Cannot start recording.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show("FFmpeg is missing.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 return;
             }
 
             if (isRecording && !isPaused) return;
-            
             if (!isRecording) {
                 segmentCount = 0;
                 try {
-                    if (Directory.Exists(tempFolder)) {
-                        try { Directory.Delete(tempFolder, true); } catch { }
-                    }
+                    if (Directory.Exists(tempFolder)) Directory.Delete(tempFolder, true);
                     Directory.CreateDirectory(tempFolder);
-                    Log("Temp folder created: " + tempFolder);
                 } catch (Exception ex) {
-                    Log("Failed to create temp folder: " + ex.Message);
                     MessageBox.Show("Error creating temp folder: " + ex.Message, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                     return;
                 }
@@ -381,63 +308,31 @@ namespace ScreenRecorderApp {
                 string args;
                 
                 if (selectedArea.HasValue) {
-                    // Record selected area
-                    int x = (int)selectedArea.Value.X;
-                    int y = (int)selectedArea.Value.Y;
-                    int width = (int)selectedArea.Value.Width;
-                    int height = (int)selectedArea.Value.Height;
-                    
-                    args = "-y -f gdigrab -framerate 30 -video_size " + width + "x" + height + 
-                           " -offset_x " + x + " -offset_y " + y +
-                           " -draw_mouse 1 -i desktop -c:v libx264 -preset ultrafast -tune zerolatency " +
-                           "-crf 23 -pix_fmt yuv420p \"" + outFile + "\"";
-                    
-                    Log("Recording selected area: " + width + "x" + height + " at (" + x + "," + y + ")");
+                    args = $"-y -f gdigrab -framerate 30 -video_size {(int)selectedArea.Value.Width}x{(int)selectedArea.Value.Height} -offset_x {(int)selectedArea.Value.X} -offset_y {(int)selectedArea.Value.Y} -draw_mouse 1 -i desktop -c:v libx264 -preset ultrafast -tune zerolatency -crf 23 -pix_fmt yuv420p \"{outFile}\"";
                 } else {
-                    // Record full screen
-                    args = "-y -f gdigrab -framerate 30 -video_size " + screenWidth + "x" + screenHeight + 
-                           " -draw_mouse 1 -i desktop -c:v libx264 -preset ultrafast -tune zerolatency " +
-                           "-crf 23 -pix_fmt yuv420p \"" + outFile + "\"";
-                    
-                    Log("Recording full screen: " + screenWidth + "x" + screenHeight);
+                    args = $"-y -f gdigrab -framerate 30 -video_size {screenWidth}x{screenHeight} -draw_mouse 1 -i desktop -c:v libx264 -preset ultrafast -tune zerolatency -crf 23 -pix_fmt yuv420p \"{outFile}\"";
                 }
                 
                 ffmpegProcess = new Process {
                     StartInfo = new ProcessStartInfo {
-                        FileName = ffmpegPath,
-                        Arguments = args,
-                        UseShellExecute = false,
-                        CreateNoWindow = true,
-                        RedirectStandardInput = true,
-                        RedirectStandardError = true,
-                        WorkingDirectory = tempFolder
+                        FileName = ffmpegPath, Arguments = args, UseShellExecute = false, CreateNoWindow = true,
+                        RedirectStandardInput = true, RedirectStandardError = true, WorkingDirectory = tempFolder
                     }
                 };
                 
-                ffmpegProcess.ErrorDataReceived += (s, ev) => {
-                    if (!string.IsNullOrEmpty(ev.Data)) Log("FFmpeg: " + ev.Data);
-                };
-                
+                ffmpegProcess.ErrorDataReceived += (s, ev) => { if (!string.IsNullOrEmpty(ev.Data)) Log("FFmpeg: " + ev.Data); };
                 ffmpegProcess.Start();
                 ffmpegProcess.BeginErrorReadLine();
                 
                 isRecording = true;
                 isPaused = false;
                 segmentCount++;
-                Log("Recording started. Segment: " + segmentCount);
                 clickOverlay.Start();
-                
-                StatusText.Text = selectedArea.HasValue ? 
-                    $"Recording area: {(int)selectedArea.Value.Width}x{(int)selectedArea.Value.Height}..." : 
-                    "Recording full screen...";
+                StatusText.Text = selectedArea.HasValue ? $"Recording area: {(int)selectedArea.Value.Width}x{(int)selectedArea.Value.Height}..." : "Recording full screen...";
                 UpdateTrayTooltip("🔴 Recording...");
-                
                 trayIcon.ShowBalloonTip(2000, "V Rec", "Recording started. UI hidden.", Forms.ToolTipIcon.Info);
-                
                 this.Hide();
-                Log("Window hidden during recording");
             } catch (Exception ex) {
-                Log("StartRec error: " + ex.Message + "\n" + ex.StackTrace);
                 MessageBox.Show("Error starting recording: " + ex.Message, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
@@ -448,40 +343,20 @@ namespace ScreenRecorderApp {
             StopFFmpegGracefully();
             StatusText.Text = "Paused.";
             UpdateTrayTooltip("⏸️ Paused");
-            Log("Recording paused");
-            
-            if (!this.IsVisible) {
-                ShowWindow();
-                trayIcon.ShowBalloonTip(2000, "V Rec", "Recording paused.", Forms.ToolTipIcon.Info);
-            }
+            if (!this.IsVisible) { ShowWindow(); trayIcon.ShowBalloonTip(2000, "V Rec", "Recording paused.", Forms.ToolTipIcon.Info); }
         }
 
         private void StopFFmpegGracefully() {
             try {
                 if (ffmpegProcess != null && !ffmpegProcess.HasExited) {
-                    Log("Stopping FFmpeg gracefully...");
-                    try {
-                        ffmpegProcess.StandardInput.WriteLine("q");
-                        ffmpegProcess.StandardInput.Flush();
-                    } catch (Exception ex) {
-                        Log("Failed to send 'q' to FFmpeg: " + ex.Message);
-                    }
-                    
-                    if (!ffmpegProcess.WaitForExit(5000)) {
-                        Log("FFmpeg didn't exit in 5s, force killing");
-                        try { ffmpegProcess.Kill(); } catch { }
-                    } else {
-                        Log("FFmpeg stopped gracefully");
-                    }
+                    try { ffmpegProcess.StandardInput.WriteLine("q"); ffmpegProcess.StandardInput.Flush(); } catch { }
+                    if (!ffmpegProcess.WaitForExit(5000)) { try { ffmpegProcess.Kill(); } catch { } }
                 }
-            } catch (Exception ex) {
-                Log("StopFFmpeg error: " + ex.Message);
-            }
+            } catch { }
         }
 
         private async void StopRec_Click(object sender, RoutedEventArgs e) {
             if (!isRecording) return;
-            
             string ffmpegPath = Path.Combine(appFolder, "ffmpeg.exe");
             StopFFmpegGracefully();
             clickOverlay.Stop();
@@ -492,148 +367,69 @@ namespace ScreenRecorderApp {
             
             await Task.Run(() => {
                 try {
-                    Log("Starting video processing...");
                     string finalVideo = Path.Combine(tempFolder, "final_video.mp4");
+                    var validSegments = Directory.GetFiles(tempFolder, "seg_*.mp4").Where(f => new FileInfo(f).Length > 1000).ToArray();
                     
-                    var segmentFiles = Directory.GetFiles(tempFolder, "seg_*.mp4");
-                    Log("Found " + segmentFiles.Length + " segment files");
-                    
-                    var validSegments = segmentFiles.Where(f => new FileInfo(f).Length > 1000).ToArray();
-                    Log("Valid segments: " + validSegments.Length);
-                    
-                    if (validSegments.Length == 0) {
-                        throw new Exception("No valid video segments found. Check log: " + logFile);
-                    }
+                    if (validSegments.Length == 0) throw new Exception("No valid video segments found.");
                     
                     if (validSegments.Length > 1) {
                         string listFile = Path.Combine(tempFolder, "list.txt");
-                        var files = validSegments.OrderBy(f => f);
-                        File.WriteAllLines(listFile, files.Select(f => "file '" + Path.GetFullPath(f).Replace("'", "''") + "'"));
-                        Log("Concatenating " + validSegments.Length + " segments");
-                        
-                        var concatProcess = Process.Start(new ProcessStartInfo {
-                            FileName = ffmpegPath,
-                            Arguments = "-y -f concat -safe 0 -i \"" + listFile + "\" -c copy \"" + finalVideo + "\"",
-                            UseShellExecute = false,
-                            CreateNoWindow = true,
-                            WorkingDirectory = tempFolder
-                        });
+                        File.WriteAllLines(listFile, validSegments.OrderBy(f => f).Select(f => "file '" + Path.GetFullPath(f).Replace("'", "''") + "'"));
+                        var concatProcess = Process.Start(new ProcessStartInfo { FileName = ffmpegPath, Arguments = $"-y -f concat -safe 0 -i \"{listFile}\" -c copy \"{finalVideo}\"", UseShellExecute = false, CreateNoWindow = true, WorkingDirectory = tempFolder });
                         concatProcess.WaitForExit();
-                        Log("Concat exit code: " + concatProcess.ExitCode);
-                        
-                        if (concatProcess.ExitCode != 0 || !File.Exists(finalVideo)) {
-                            throw new Exception("FFmpeg concat failed. Exit code: " + concatProcess.ExitCode);
-                        }
+                        if (concatProcess.ExitCode != 0 || !File.Exists(finalVideo)) throw new Exception("FFmpeg concat failed.");
                     } else {
                         File.Copy(validSegments[0], finalVideo, true);
-                        Log("Single segment, copied to final_video.mp4");
-                    }
-
-                    if (!File.Exists(finalVideo) || new FileInfo(finalVideo).Length < 1000) {
-                        throw new Exception("Final video file was not created properly");
                     }
 
                     string timestamp = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss");
                     string finalFilename = Path.Combine(outputFolder, "VRec_" + timestamp + ".mp4");
-                    Log("Output filename: " + finalFilename);
 
                     string bgPath = Path.Combine(appFolder, "bg.mp3");
                     if (File.Exists(bgPath)) {
-                        Log("Mixing with background music: " + bgPath);
-                        string mixArgs = "-y -i \"" + finalVideo + "\" -stream_loop -1 -i \"" + bgPath + 
-                                         "\" -c:v copy -c:a aac -shortest -map 0:v:0 -map 1:a:0 \"" + finalFilename + "\"";
-                        
-                        var mixProcess = Process.Start(new ProcessStartInfo {
-                            FileName = ffmpegPath,
-                            Arguments = mixArgs,
-                            UseShellExecute = false,
-                            CreateNoWindow = true,
-                            WorkingDirectory = tempFolder
-                        });
+                        var mixProcess = Process.Start(new ProcessStartInfo { FileName = ffmpegPath, Arguments = $"-y -i \"{finalVideo}\" -stream_loop -1 -i \"{bgPath}\" -c:v copy -c:a aac -shortest -map 0:v:0 -map 1:a:0 \"{finalFilename}\"", UseShellExecute = false, CreateNoWindow = true, WorkingDirectory = tempFolder });
                         mixProcess.WaitForExit();
-                        Log("Mix exit code: " + mixProcess.ExitCode);
-                        
-                        if (mixProcess.ExitCode != 0 || !File.Exists(finalFilename)) {
-                            throw new Exception("FFmpeg audio mix failed. Exit code: " + mixProcess.ExitCode);
-                        }
-                        
+                        if (mixProcess.ExitCode != 0 || !File.Exists(finalFilename)) throw new Exception("FFmpeg audio mix failed.");
                         try { File.Delete(finalVideo); } catch { }
                     } else {
-                        Log("No bg.mp3 found, moving video without audio mix");
                         File.Move(finalVideo, finalFilename);
                     }
 
-                    if (!File.Exists(finalFilename)) {
-                        throw new Exception("Final output file was not created");
-                    }
+                    if (!File.Exists(finalFilename)) throw new Exception("Final output file was not created.");
                     
-                    Log("Video saved successfully: " + finalFilename);
-                    
-                    try {
-                        if (Directory.Exists(tempFolder)) Directory.Delete(tempFolder, true);
-                        Log("Temp folder cleaned up");
-                    } catch (Exception ex) {
-                        Log("Failed to clean temp folder: " + ex.Message);
-                    }
+                    try { if (Directory.Exists(tempFolder)) Directory.Delete(tempFolder, true); } catch { }
                     
                     Dispatcher.Invoke(() => {
-                        trayIcon.ShowBalloonTip(
-                            3000, 
-                            "V Rec", 
-                            "Video saved to: " + finalFilename, 
-                            Forms.ToolTipIcon.Info
-                        );
+                        trayIcon.ShowBalloonTip(3000, "V Rec", "Video saved to: " + finalFilename, Forms.ToolTipIcon.Info);
                     });
                 } catch (Exception ex) {
-                    Log("StopRec error: " + ex.Message + "\n" + ex.StackTrace);
                     Dispatcher.Invoke(() => {
-                        trayIcon.ShowBalloonTip(
-                            3000, 
-                            "V Rec - Error", 
-                            "Error: " + ex.Message, 
-                            Forms.ToolTipIcon.Error
-                        );
+                        trayIcon.ShowBalloonTip(3000, "V Rec - Error", "Error: " + ex.Message, Forms.ToolTipIcon.Error);
                     });
                 }
             });
 
-            StatusText.Text = selectedArea.HasValue ? 
-                $"Ready. Area: {(int)selectedArea.Value.Width}x{(int)selectedArea.Value.Height}. Videos: {outputFolder}" : 
-                "Ready. Videos saved to: " + outputFolder;
+            StatusText.Text = selectedArea.HasValue ? $"Ready. Area: {(int)selectedArea.Value.Width}x{(int)selectedArea.Value.Height}." : "Ready. Videos saved to: " + outputFolder;
             UpdateTrayTooltip("Ready");
             StartRecButton.IsEnabled = true;
             isRecording = false;
             isPaused = false;
-            
-            if (!this.IsVisible) {
-                ShowWindow();
-            }
+            if (!this.IsVisible) ShowWindow();
         }
 
         private void Draw_Click(object sender, RoutedEventArgs e) {
             try {
                 if (overlay == null) overlay = new DrawingOverlay();
-                overlay.Show();
-                overlay.Activate();
-                overlay.StartDrawing();
-                drawTimer.Start();
+                overlay.Show(); overlay.Activate(); overlay.StartDrawing(); drawTimer.Start();
                 StatusText.Text = "Drawing mode. Hold left mouse. Press Esc to stop.";
-                Log("Drawing mode activated");
             } catch (Exception ex) {
-                Log("Draw_Click error: " + ex.Message);
                 MessageBox.Show("Error starting draw mode: " + ex.Message, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
-        private void HelpButton_Click(object sender, RoutedEventArgs e) {
-            HelpPopup.IsOpen = !HelpPopup.IsOpen;
-        }
-
+        private void HelpButton_Click(object sender, RoutedEventArgs e) { HelpPopup.IsOpen = !HelpPopup.IsOpen; }
         private void MinimizeToTray_Click(object sender, RoutedEventArgs e) => MinimizeToTray();
         private void Exit_Click(object sender, RoutedEventArgs e) => ExitApplication();
-
-        private void TitleBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e) {
-            this.DragMove();
-        }
+        private void TitleBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e) => this.DragMove();
     }
 }
