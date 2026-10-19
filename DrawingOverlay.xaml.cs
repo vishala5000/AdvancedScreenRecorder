@@ -3,6 +3,8 @@ using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Threading;
+using System.Windows.Shapes;
+using System.Windows.Media;
 
 namespace ScreenRecorderApp {
     public partial class DrawingOverlay : Window {
@@ -16,9 +18,8 @@ namespace ScreenRecorderApp {
         }
 
         private bool isDrawing = false;
-        private Point lastPos;
         private DispatcherTimer posTimer;
-        private bool hasStartedDrawing = false;
+        private Polyline currentStroke; // Holds the line currently being drawn
 
         public DrawingOverlay() {
             InitializeComponent();
@@ -32,8 +33,8 @@ namespace ScreenRecorderApp {
 
         public void StartDrawing() {
             isDrawing = true;
-            hasStartedDrawing = false;
-            ClickOverlay.IsSuppressed = true;
+            currentStroke = null; // Reset so the next click starts a fresh line
+            ClickOverlay.IsSuppressed = true; // Prevent click ripples while drawing
             
             posTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
             posTimer.Tick += PosTimer_Tick;
@@ -49,8 +50,9 @@ namespace ScreenRecorderApp {
                 posTimer.Tick -= PosTimer_Tick;
             }
             
-            DrawLine.Points.Clear();
-            hasStartedDrawing = false;
+            // THIS CLEARS EVERYTHING WHEN YOU PRESS ESC
+            DrawCanvas.Children.Clear();
+            currentStroke = null;
             this.Hide();
         }
 
@@ -61,27 +63,36 @@ namespace ScreenRecorderApp {
                 bool isLeftClickHeld = (GetAsyncKeyState(0x01) & 0x8000) != 0;
 
                 if (isLeftClickHeld) {
-                    // Get cursor position using native Windows API (no namespace conflicts)
                     GetCursorPos(out POINT cursorPos);
                     Point screenPos = new Point(cursorPos.X, cursorPos.Y);
                     Point windowPos = this.PointFromScreen(screenPos);
 
-                    if (!hasStartedDrawing) {
-                        DrawLine.Points.Add(windowPos);
-                        lastPos = windowPos;
-                        hasStartedDrawing = true;
+                    if (currentStroke == null) {
+                        // MOUSE WAS JUST CLICKED: Start a brand new, separate stroke
+                        currentStroke = new Polyline {
+                            Stroke = Brushes.Red,
+                            StrokeThickness = 4,
+                            StrokeLineJoin = PenLineJoin.Round,
+                            StrokeStartLineCap = PenLineCap.Round,
+                            StrokeEndLineCap = PenLineCap.Round
+                        };
+                        DrawCanvas.Children.Add(currentStroke);
+                        currentStroke.Points.Add(windowPos);
                     } else {
-                        double dx = Math.Abs(lastPos.X - windowPos.X);
-                        double dy = Math.Abs(lastPos.Y - windowPos.Y);
+                        // MOUSE IS STILL HELD: Continue the current stroke
+                        Point lastPoint = currentStroke.Points[currentStroke.Points.Count - 1];
+                        double dx = Math.Abs(lastPoint.X - windowPos.X);
+                        double dy = Math.Abs(lastPoint.Y - windowPos.Y);
                         
+                        // Only add point if moved more than 2 pixels (saves CPU and makes lines smooth)
                         if (dx > 2 || dy > 2) {
-                            DrawLine.Points.Add(windowPos);
-                            lastPos = windowPos;
+                            currentStroke.Points.Add(windowPos);
                         }
                     }
                 } else {
-                    hasStartedDrawing = false;
-                    lastPos = default;
+                    // MOUSE WAS RELEASED: Finalize the current stroke. 
+                    // Setting to null ensures the next click starts a NEW separate line.
+                    currentStroke = null;
                 }
             } catch { }
         }
