@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics;
+using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -9,6 +10,7 @@ using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
+using Forms = System.Windows.Forms;
 
 namespace ScreenRecorderApp {
     public partial class MainWindow : Window {
@@ -42,6 +44,10 @@ namespace ScreenRecorderApp {
         private string logFile;
         private int screenWidth;
         private int screenHeight;
+        
+        // System Tray Icon
+        private Forms.NotifyIcon trayIcon;
+        private Forms.ContextMenuStrip trayMenu;
 
         public MainWindow() {
             InitializeComponent();
@@ -72,13 +78,122 @@ namespace ScreenRecorderApp {
                 }
             }
 
+            InitializeTrayIcon();
             CheckFFmpeg();
             InitDrawTimer();
             clickOverlay = new ClickOverlay();
             
             this.Loaded += MainWindow_Loaded;
+            this.StateChanged += MainWindow_StateChanged;
             
             Log("MainWindow initialized. Screen: " + screenWidth + "x" + screenHeight);
+        }
+
+        private void InitializeTrayIcon() {
+            try {
+                // Create context menu
+                trayMenu = new Forms.ContextMenuStrip();
+                trayMenu.BackColor = System.Drawing.Color.FromArgb(26, 26, 26);
+                trayMenu.ForeColor = System.Drawing.Color.White;
+                trayMenu.ShowImageMargin = false;
+                
+                var showItem = new Forms.ToolStripMenuItem("📺 Show V Rec");
+                showItem.Click += (s, e) => ShowWindow();
+                
+                var startItem = new Forms.ToolStripMenuItem("▶️ Start Recording");
+                startItem.Click += (s, e) => Dispatcher.Invoke(() => StartRec_Click(null, null));
+                
+                var pauseItem = new Forms.ToolStripMenuItem("⏸️ Pause Recording");
+                pauseItem.Click += (s, e) => Dispatcher.Invoke(() => PauseRec_Click(null, null));
+                
+                var stopItem = new Forms.ToolStripMenuItem("⏹️ Stop Recording");
+                stopItem.Click += (s, e) => Dispatcher.Invoke(() => StopRec_Click(null, null));
+                
+                var drawItem = new Forms.ToolStripMenuItem("✏️ Toggle Draw Mode");
+                drawItem.Click += (s, e) => Dispatcher.Invoke(() => Draw_Click(null, null));
+                
+                var exitItem = new Forms.ToolStripMenuItem("❌ Exit");
+                exitItem.Click += (s, e) => ExitApplication();
+                
+                trayMenu.Items.Add(showItem);
+                trayMenu.Items.Add(new Forms.ToolStripSeparator());
+                trayMenu.Items.Add(startItem);
+                trayMenu.Items.Add(pauseItem);
+                trayMenu.Items.Add(stopItem);
+                trayMenu.Items.Add(drawItem);
+                trayMenu.Items.Add(new Forms.ToolStripSeparator());
+                trayMenu.Items.Add(exitItem);
+                
+                // Create tray icon
+                trayIcon = new Forms.NotifyIcon {
+                    Visible = true,
+                    ContextMenuStrip = trayMenu,
+                    Text = "V Rec - Ready"
+                };
+                
+                // Load icon
+                string iconFilePath = Path.Combine(appFolder, "icon.ico");
+                string iconPngPath = Path.Combine(appFolder, "icon.png");
+                
+                if (File.Exists(iconFilePath)) {
+                    trayIcon.Icon = new Icon(iconFilePath);
+                } else if (File.Exists(iconPngPath)) {
+                    using (var bmp = new Bitmap(iconPngPath)) {
+                        IntPtr hIcon = bmp.GetHicon();
+                        trayIcon.Icon = Icon.FromHandle(hIcon);
+                    }
+                } else {
+                    trayIcon.Icon = System.Drawing.SystemIcons.Application;
+                }
+                
+                // Double-click tray icon to show window
+                trayIcon.DoubleClick += (s, e) => ShowWindow();
+                
+                Log("System tray icon initialized");
+            } catch (Exception ex) {
+                Log("Failed to initialize tray icon: " + ex.Message);
+            }
+        }
+
+        private void ShowWindow() {
+            this.Show();
+            this.WindowState = WindowState.Normal;
+            this.Activate();
+            this.Topmost = true;
+            this.Topmost = false;
+        }
+
+        private void MinimizeToTray() {
+            this.Hide();
+            trayIcon.ShowBalloonTip(
+                2000, 
+                "V Rec", 
+                "App is running in system tray. Right-click the icon for options.", 
+                Forms.ToolTipIcon.Info
+            );
+        }
+
+        private void ExitApplication() {
+            try {
+                if (ffmpegProcess != null && !ffmpegProcess.HasExited) {
+                    ffmpegProcess.Kill();
+                }
+            } catch { }
+            
+            try {
+                if (trayIcon != null) {
+                    trayIcon.Visible = false;
+                    trayIcon.Dispose();
+                }
+            } catch { }
+            
+            Application.Current.Shutdown();
+        }
+
+        private void MainWindow_StateChanged(object sender, EventArgs e) {
+            if (this.WindowState == WindowState.Minimized) {
+                MinimizeToTray();
+            }
         }
 
         private void MainWindow_Loaded(object sender, RoutedEventArgs e) {
@@ -123,11 +238,20 @@ namespace ScreenRecorderApp {
         }
 
         protected override void OnClosed(EventArgs e) {
-            var helper = new WindowInteropHelper(this);
-            UnregisterHotKey(helper.Handle, HOTKEY_START);
-            UnregisterHotKey(helper.Handle, HOTKEY_PAUSE);
-            UnregisterHotKey(helper.Handle, HOTKEY_STOP);
-            UnregisterHotKey(helper.Handle, HOTKEY_DRAW);
+            try {
+                var helper = new WindowInteropHelper(this);
+                UnregisterHotKey(helper.Handle, HOTKEY_START);
+                UnregisterHotKey(helper.Handle, HOTKEY_PAUSE);
+                UnregisterHotKey(helper.Handle, HOTKEY_STOP);
+                UnregisterHotKey(helper.Handle, HOTKEY_DRAW);
+            } catch { }
+            
+            try {
+                if (trayIcon != null) {
+                    trayIcon.Visible = false;
+                    trayIcon.Dispose();
+                }
+            } catch { }
             
             base.OnClosed(e);
         }
@@ -139,6 +263,14 @@ namespace ScreenRecorderApp {
             } catch { }
         }
 
+        private void UpdateTrayTooltip(string status) {
+            try {
+                if (trayIcon != null) {
+                    trayIcon.Text = "V Rec - " + status;
+                }
+            } catch { }
+        }
+
         private void CheckFFmpeg() {
             try {
                 string ffmpegPath = Path.Combine(appFolder, "ffmpeg.exe");
@@ -147,11 +279,13 @@ namespace ScreenRecorderApp {
                 if (!File.Exists(ffmpegPath)) {
                     StatusText.Text = "Error: FFmpeg not found!";
                     Log("FFmpeg NOT FOUND");
+                    UpdateTrayTooltip("FFmpeg Missing!");
                     MessageBox.Show("FFmpeg is missing from: " + appFolder, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 } else {
                     var fileInfo = new FileInfo(ffmpegPath);
                     Log("FFmpeg found. Size: " + fileInfo.Length + " bytes");
                     StatusText.Text = "Ready. Screen: " + screenWidth + "x" + screenHeight + ". Videos: " + outputFolder;
+                    UpdateTrayTooltip("Ready");
                 }
             } catch (Exception ex) {
                 Log("CheckFFmpeg error: " + ex.Message);
@@ -227,7 +361,11 @@ namespace ScreenRecorderApp {
                 Log("Recording started. Segment: " + segmentCount);
                 clickOverlay.Start();
                 
-                // HIDE THE WINDOW SO IT DOESN'T APPEAR IN THE VIDEO
+                StatusText.Text = "Recording...";
+                UpdateTrayTooltip("🔴 Recording...");
+                
+                trayIcon.ShowBalloonTip(2000, "V Rec", "Recording started. UI hidden.", Forms.ToolTipIcon.Info);
+                
                 this.Hide();
                 Log("Window hidden during recording");
             } catch (Exception ex) {
@@ -240,14 +378,13 @@ namespace ScreenRecorderApp {
             if (!isRecording || isPaused) return;
             isPaused = true;
             StopFFmpegGracefully();
+            StatusText.Text = "Paused.";
+            UpdateTrayTooltip("⏸️ Paused");
             Log("Recording paused");
             
-            // Show window when paused so user can see status
             if (!this.IsVisible) {
-                this.Show();
-                this.Activate();
-                StatusText.Text = "Paused. Use Ctrl+Shift+R to resume or Ctrl+Shift+S to stop.";
-                Log("Window shown during pause");
+                ShowWindow();
+                trayIcon.ShowBalloonTip(2000, "V Rec", "Recording paused.", Forms.ToolTipIcon.Info);
             }
         }
 
@@ -281,11 +418,13 @@ namespace ScreenRecorderApp {
             StopFFmpegGracefully();
             clickOverlay.Stop();
 
-            Log("Starting video processing...");
+            StatusText.Text = "Processing & Mixing Audio... Please wait.";
+            UpdateTrayTooltip("⚙️ Processing...");
             StartRecButton.IsEnabled = false;
             
             await Task.Run(() => {
                 try {
+                    Log("Starting video processing...");
                     string finalVideo = Path.Combine(tempFolder, "final_video.mp4");
                     
                     var segmentFiles = Directory.GetFiles(tempFolder, "seg_*.mp4");
@@ -339,81 +478,4 @@ namespace ScreenRecorderApp {
                         var mixProcess = Process.Start(new ProcessStartInfo {
                             FileName = ffmpegPath,
                             Arguments = mixArgs,
-                            UseShellExecute = false,
-                            CreateNoWindow = true,
-                            WorkingDirectory = tempFolder
-                        });
-                        mixProcess.WaitForExit();
-                        Log("Mix exit code: " + mixProcess.ExitCode);
-                        
-                        if (mixProcess.ExitCode != 0 || !File.Exists(finalFilename)) {
-                            throw new Exception("FFmpeg audio mix failed. Exit code: " + mixProcess.ExitCode);
-                        }
-                        
-                        try { File.Delete(finalVideo); } catch { }
-                    } else {
-                        Log("No bg.mp3 found, moving video without audio mix");
-                        File.Move(finalVideo, finalFilename);
-                    }
-
-                    if (!File.Exists(finalFilename)) {
-                        throw new Exception("Final output file was not created");
-                    }
-                    
-                    Log("Video saved successfully: " + finalFilename);
-                    
-                    try {
-                        if (Directory.Exists(tempFolder)) Directory.Delete(tempFolder, true);
-                        Log("Temp folder cleaned up");
-                    } catch (Exception ex) {
-                        Log("Failed to clean temp folder: " + ex.Message);
-                    }
-                    
-                    Dispatcher.Invoke(() => {
-                        MessageBox.Show("Video saved successfully!\n\nLocation: " + finalFilename, 
-                                        "Success", MessageBoxButton.OK, MessageBoxImage.Information);
-                    });
-                } catch (Exception ex) {
-                    Log("StopRec error: " + ex.Message + "\n" + ex.StackTrace);
-                    Dispatcher.Invoke(() => {
-                        MessageBox.Show("Error saving video: " + ex.Message + "\n\nCheck log: " + logFile, 
-                                        "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                    });
-                }
-            });
-
-            StatusText.Text = "Ready. Videos saved to: " + outputFolder;
-            StartRecButton.IsEnabled = true;
-            isRecording = false;
-            isPaused = false;
-            
-            // SHOW THE WINDOW AGAIN AFTER RECORDING STOPS
-            if (!this.IsVisible) {
-                this.Show();
-                this.Activate();
-                Log("Window shown after recording stopped");
-            }
-        }
-
-        private void Draw_Click(object sender, RoutedEventArgs e) {
-            try {
-                if (overlay == null) overlay = new DrawingOverlay();
-                overlay.Show();
-                overlay.Activate();
-                overlay.StartDrawing();
-                drawTimer.Start();
-                Log("Drawing mode activated");
-            } catch (Exception ex) {
-                Log("Draw_Click error: " + ex.Message);
-                MessageBox.Show("Error starting draw mode: " + ex.Message, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-            }
-        }
-
-        private void Minimize_Click(object sender, RoutedEventArgs e) => this.WindowState = WindowState.Minimized;
-        private void Exit_Click(object sender, RoutedEventArgs e) => Application.Current.Shutdown();
-
-        private void TitleBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e) {
-            this.DragMove();
-        }
-    }
-}
+                            UseShellExecute =
