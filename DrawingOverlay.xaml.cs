@@ -54,7 +54,6 @@ namespace ScreenRecorderApp {
                 bool isLeftClickHeld = (GetAsyncKeyState(0x01) & 0x8000) != 0;
 
                 if (isLeftClickHeld) {
-                    // Get mouse position directly in window coordinates
                     Point windowPos = Mouse.GetPosition(this);
 
                     if (!hasStartedDrawing) {
