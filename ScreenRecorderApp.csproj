@@ -1,9 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net8.0-windows</TargetFramework>
+    <TargetFramework>net48</TargetFramework>
     <UseWPF>true</UseWPF>
-    <UseWindowsForms>true</UseWindowsForms>
+    <LangVersion>latest</LangVersion>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
     <AssemblyName>V Rec</AssemblyName>
     <Product>V Rec</Product>
     <Title>V Rec</Title>
@@ -11,5 +12,7 @@
   <ItemGroup>
     <PackageReference Include="NAudio" Version="2.2.1" />
     <Resource Include="icon.png" />
+    <!-- Required for ZipFile extraction in .NET Framework -->
+    <Reference Include="System.IO.Compression.FileSystem" />
   </ItemGroup>
 </Project>
