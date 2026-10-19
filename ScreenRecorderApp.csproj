@@ -11,10 +11,8 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="NAudio" Version="2.2.1" />
-    <Resource Include="icon.png" />
     <Reference Include="System.IO.Compression.FileSystem" />
-    
-    <!-- Embed Background Music only -->
+    <Resource Include="icon.png" />
     <Content Include="bg.mp3">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
