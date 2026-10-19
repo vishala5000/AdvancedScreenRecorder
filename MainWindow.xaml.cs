@@ -6,6 +6,7 @@ using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
+using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 
 namespace ScreenRecorderApp {
@@ -23,17 +24,29 @@ namespace ScreenRecorderApp {
 
         public MainWindow() {
             InitializeComponent();
+            
+            // SAFELY load icon. If missing, app continues without crashing.
+            if (File.Exists("icon.png")) {
+                try {
+                    this.Icon = new BitmapImage(new Uri(Path.GetFullPath("icon.png")));
+                } catch { }
+            }
+
             CheckFFmpeg();
             InitDrawTimer();
             clickOverlay = new ClickOverlay();
         }
 
         private void CheckFFmpeg() {
-            if (!File.Exists("ffmpeg.exe")) {
-                StatusText.Text = "Error: FFmpeg not found!";
-                MessageBox.Show("FFmpeg is missing from the application folder. Please reinstall the app.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-            } else {
-                StatusText.Text = "Ready. V Rec is fully operational.";
+            try {
+                if (!File.Exists("ffmpeg.exe")) {
+                    StatusText.Text = "Error: FFmpeg not found!";
+                    MessageBox.Show("FFmpeg is missing. Please ensure it is in the same folder as the app.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                } else {
+                    StatusText.Text = "Ready. V Rec is fully operational.";
+                }
+            } catch {
+                StatusText.Text = "Ready.";
             }
         }
 
@@ -61,7 +74,7 @@ namespace ScreenRecorderApp {
                 Directory.CreateDirectory("temp_segments");
             }
 
-            string outFile = System.IO.Path.Combine("temp_segments", "seg_" + segmentCount + ".mp4");
+            string outFile = Path.Combine("temp_segments", "seg_" + segmentCount + ".mp4");
             string args = "-f gdigrab -framerate 30 -video_size 1920x1080 -draw_mouse 1 -i desktop -c:v libx264 -preset ultrafast -tune zerolatency -crf 23 -pix_fmt yuv420p \"" + outFile + "\"";
             
             ffmpegProcess = new Process {
@@ -92,26 +105,30 @@ namespace ScreenRecorderApp {
             StartRecButton.IsEnabled = false;
             
             await Task.Run(() => {
-                string finalVideo = System.IO.Path.Combine("temp_segments", "final_video.mp4");
-                
-                if (segmentCount > 1) {
-                    string listFile = System.IO.Path.Combine("temp_segments", "list.txt");
-                    var files = Directory.GetFiles("temp_segments", "seg_*.mp4").OrderBy(f => f);
-                    File.WriteAllLines(listFile, files.Select(f => "file '" + System.IO.Path.GetFullPath(f) + "'"));
-                    Process.Start("ffmpeg.exe", "-f concat -safe 0 -i \"" + listFile + "\" -c copy \"" + finalVideo + "\"").WaitForExit();
-                } else {
-                    File.Move(System.IO.Path.Combine("temp_segments", "seg_0.mp4"), finalVideo);
-                }
+                try {
+                    string finalVideo = Path.Combine("temp_segments", "final_video.mp4");
+                    
+                    if (segmentCount > 1) {
+                        string listFile = Path.Combine("temp_segments", "list.txt");
+                        var files = Directory.GetFiles("temp_segments", "seg_*.mp4").OrderBy(f => f);
+                        File.WriteAllLines(listFile, files.Select(f => "file '" + Path.GetFullPath(f) + "'"));
+                        Process.Start("ffmpeg.exe", "-f concat -safe 0 -i \"" + listFile + "\" -c copy \"" + finalVideo + "\"").WaitForExit();
+                    } else {
+                        File.Move(Path.Combine("temp_segments", "seg_0.mp4"), finalVideo);
+                    }
 
-                string timestamp = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss");
-                string finalFilename = "VRec_" + timestamp + ".mp4";
+                    string timestamp = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss");
+                    string finalFilename = "VRec_" + timestamp + ".mp4";
 
-                if (File.Exists("bg.mp3")) {
-                    string mixArgs = "-i \"" + finalVideo + "\" -stream_loop -1 -i bg.mp3 -c:v copy -c:a aac -shortest -map 0:v:0 -map 1:a:0 \"" + finalFilename + "\"";
-                    Process.Start("ffmpeg.exe", mixArgs).WaitForExit();
-                    File.Delete(finalVideo);
-                } else {
-                    File.Move(finalVideo, finalFilename);
+                    if (File.Exists("bg.mp3")) {
+                        string mixArgs = "-i \"" + finalVideo + "\" -stream_loop -1 -i bg.mp3 -c:v copy -c:a aac -shortest -map 0:v:0 -map 1:a:0 \"" + finalFilename + "\"";
+                        Process.Start("ffmpeg.exe", mixArgs).WaitForExit();
+                        File.Delete(finalVideo);
+                    } else {
+                        File.Move(finalVideo, finalFilename);
+                    }
+                } catch (Exception ex) {
+                    MessageBox.Show("Error saving video: " + ex.Message, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 }
             });
 
@@ -131,7 +148,6 @@ namespace ScreenRecorderApp {
         private void Minimize_Click(object sender, RoutedEventArgs e) => this.WindowState = WindowState.Minimized;
         private void Exit_Click(object sender, RoutedEventArgs e) => Application.Current.Shutdown();
 
-        // THIS IS THE METHOD THAT ALLOWS DRAGGING THE WINDOW
         private void TitleBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e) {
             this.DragMove();
         }
