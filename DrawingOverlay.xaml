@@ -8,10 +8,6 @@
         ShowInTaskbar="False"
         IsHitTestVisible="False"
         WindowState="Maximized">
-    <Polyline x:Name="DrawLine" 
-              Stroke="#E60000" 
-              StrokeThickness="4" 
-              StrokeLineJoin="Round" 
-              StrokeStartLineCap="Round" 
-              StrokeEndLineCap="Round"/>
+    <!-- Changed from Polyline to Canvas so we can draw multiple separate strokes -->
+    <Canvas x:Name="DrawCanvas" Background="Transparent"/>
 </Window>
