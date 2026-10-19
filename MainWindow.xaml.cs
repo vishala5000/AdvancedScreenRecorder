@@ -478,4 +478,88 @@ namespace ScreenRecorderApp {
                         var mixProcess = Process.Start(new ProcessStartInfo {
                             FileName = ffmpegPath,
                             Arguments = mixArgs,
-                            UseShellExecute =
+                            UseShellExecute = false,
+                            CreateNoWindow = true,
+                            WorkingDirectory = tempFolder
+                        });
+                        mixProcess.WaitForExit();
+                        Log("Mix exit code: " + mixProcess.ExitCode);
+                        
+                        if (mixProcess.ExitCode != 0 || !File.Exists(finalFilename)) {
+                            throw new Exception("FFmpeg audio mix failed. Exit code: " + mixProcess.ExitCode);
+                        }
+                        
+                        try { File.Delete(finalVideo); } catch { }
+                    } else {
+                        Log("No bg.mp3 found, moving video without audio mix");
+                        File.Move(finalVideo, finalFilename);
+                    }
+
+                    if (!File.Exists(finalFilename)) {
+                        throw new Exception("Final output file was not created");
+                    }
+                    
+                    Log("Video saved successfully: " + finalFilename);
+                    
+                    try {
+                        if (Directory.Exists(tempFolder)) Directory.Delete(tempFolder, true);
+                        Log("Temp folder cleaned up");
+                    } catch (Exception ex) {
+                        Log("Failed to clean temp folder: " + ex.Message);
+                    }
+                    
+                    Dispatcher.Invoke(() => {
+                        trayIcon.ShowBalloonTip(
+                            3000, 
+                            "V Rec", 
+                            "Video saved to: " + finalFilename, 
+                            Forms.ToolTipIcon.Info
+                        );
+                    });
+                } catch (Exception ex) {
+                    Log("StopRec error: " + ex.Message + "\n" + ex.StackTrace);
+                    Dispatcher.Invoke(() => {
+                        trayIcon.ShowBalloonTip(
+                            3000, 
+                            "V Rec - Error", 
+                            "Error: " + ex.Message, 
+                            Forms.ToolTipIcon.Error
+                        );
+                    });
+                }
+            });
+
+            StatusText.Text = "Ready. Videos saved to: " + outputFolder;
+            UpdateTrayTooltip("Ready");
+            StartRecButton.IsEnabled = true;
+            isRecording = false;
+            isPaused = false;
+            
+            if (!this.IsVisible) {
+                ShowWindow();
+            }
+        }
+
+        private void Draw_Click(object sender, RoutedEventArgs e) {
+            try {
+                if (overlay == null) overlay = new DrawingOverlay();
+                overlay.Show();
+                overlay.Activate();
+                overlay.StartDrawing();
+                drawTimer.Start();
+                StatusText.Text = "Drawing mode. Hold left mouse. Press Esc to stop.";
+                Log("Drawing mode activated");
+            } catch (Exception ex) {
+                Log("Draw_Click error: " + ex.Message);
+                MessageBox.Show("Error starting draw mode: " + ex.Message, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void MinimizeToTray_Click(object sender, RoutedEventArgs e) => MinimizeToTray();
+        private void Exit_Click(object sender, RoutedEventArgs e) => ExitApplication();
+
+        private void TitleBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e) {
+            this.DragMove();
+        }
+    }
+}
