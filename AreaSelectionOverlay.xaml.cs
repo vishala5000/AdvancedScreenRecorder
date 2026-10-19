@@ -2,6 +2,7 @@ using System;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Input;
+using System.Windows.Controls; // ADDED: Required for Canvas.SetLeft/SetTop
 
 namespace ScreenRecorderApp {
     public partial class AreaSelectionOverlay : Window {
@@ -50,7 +51,6 @@ namespace ScreenRecorderApp {
                 InfoText.Text = $"Selected: {(int)width} x {(int)height} pixels";
             }
             
-            // Check for Esc key
             if ((GetAsyncKeyState(VK_ESCAPE) & 0x8000) != 0) {
                 CancelSelection();
             }
