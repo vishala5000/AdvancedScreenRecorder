@@ -1,7 +1,7 @@
 <Window x:Class="ScreenRecorderApp.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Advanced Recorder" Height="400" Width="350"
+        Title="V Rec" Height="400" Width="350"
         WindowStyle="None" AllowsTransparency="True" Background="#121212" 
         Foreground="White" WindowStartupLocation="CenterScreen"
         Icon="icon.png">
@@ -13,7 +13,7 @@
         
         <!-- Custom Title Bar -->
         <Grid Grid.Row="0" Background="#000000">
-            <TextBlock Text="1080p HD RECORDER" VerticalAlignment="Center" Margin="15,0" FontWeight="Bold" Foreground="#E60000"/>
+            <TextBlock Text="V REC | 1080p HD" VerticalAlignment="Center" Margin="15,0" FontWeight="Bold" Foreground="#E60000"/>
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                 <Button Content="_" Width="40" Height="40" Background="#121212" Foreground="White" BorderThickness="0" Click="Minimize_Click" FontSize="16"/>
                 <Button Content="X" Width="40" Height="40" Background="#E60000" Foreground="White" BorderThickness="0" Click="Exit_Click" FontSize="16"/>
