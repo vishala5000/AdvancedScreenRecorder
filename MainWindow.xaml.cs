@@ -19,12 +19,14 @@ namespace ScreenRecorderApp {
         private bool isPaused = false;
         private int segmentCount = 0;
         private DrawingOverlay overlay;
+        private ClickOverlay clickOverlay;
         private DispatcherTimer drawTimer;
 
         public MainWindow() {
             InitializeComponent();
             EnsureFFmpeg();
             InitDrawTimer();
+            clickOverlay = new ClickOverlay();
         }
 
         private void EnsureFFmpeg() {
@@ -72,6 +74,9 @@ namespace ScreenRecorderApp {
             isPaused = false;
             segmentCount++;
             StatusText.Text = "Recording 1080p...";
+            
+            // Activate click animations and sounds
+            clickOverlay.Start();
         }
 
         private void PauseRec_Click(object sender, RoutedEventArgs e) {
@@ -85,10 +90,12 @@ namespace ScreenRecorderApp {
             if (!isRecording) return;
             if (ffmpegProcess != null && !ffmpegProcess.HasExited) ffmpegProcess.Kill();
             
+            // Deactivate click animations
+            clickOverlay.Stop();
+
             StatusText.Text = "Processing & Mixing Audio... Please wait.";
-            StartRecButton.IsEnabled = false; // Prevent UI hangs from double clicks
+            StartRecButton.IsEnabled = false;
             
-            // Run heavy file operations and FFmpeg mixing on a background thread
             await Task.Run(() => {
                 string finalVideo = Path.Combine("temp_segments", "final_video.mp4");
                 
