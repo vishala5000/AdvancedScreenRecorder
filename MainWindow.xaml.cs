@@ -36,7 +36,6 @@ namespace ScreenRecorderApp {
             outputFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyVideos), "VRec");
             tempFolder = Path.Combine(Path.GetTempPath(), "VRec_Temp");
             
-            // Get actual screen resolution in pixels
             screenWidth = GetSystemMetrics(0);
             screenHeight = GetSystemMetrics(1);
             
@@ -105,10 +104,10 @@ namespace ScreenRecorderApp {
 
             try {
                 string outFile = Path.Combine(tempFolder, "seg_" + segmentCount + ".mp4");
-                // Use actual screen resolution + fragmented MP4 for safe recording
+                // Standard MP4 recording - NO fragmented flags (allows proper concatenation)
                 string args = "-y -f gdigrab -framerate 30 -video_size " + screenWidth + "x" + screenHeight + 
                               " -draw_mouse 1 -i desktop -c:v libx264 -preset ultrafast -tune zerolatency " +
-                              "-crf 23 -pix_fmt yuv420p -movflags +frag_keyframe+empty_moov+default_base_moof \"" + outFile + "\"";
+                              "-crf 23 -pix_fmt yuv420p \"" + outFile + "\"";
                 
                 ffmpegProcess = new Process {
                     StartInfo = new ProcessStartInfo {
@@ -144,14 +143,12 @@ namespace ScreenRecorderApp {
         private void StopFFmpegGracefully() {
             try {
                 if (ffmpegProcess != null && !ffmpegProcess.HasExited) {
-                    // Send 'q' command to FFmpeg to gracefully stop (prevents corrupted files)
                     try {
                         ffmpegProcess.StandardInput.WriteLine("q");
                         ffmpegProcess.StandardInput.Flush();
                     } catch { }
                     
                     if (!ffmpegProcess.WaitForExit(5000)) {
-                        // If it didn't exit in 5 seconds, force kill
                         try { ffmpegProcess.Kill(); } catch { }
                     }
                 }
@@ -173,7 +170,7 @@ namespace ScreenRecorderApp {
                     string finalVideo = Path.Combine(tempFolder, "final_video.mp4");
                     
                     var segmentFiles = Directory.GetFiles(tempFolder, "seg_*.mp4")
-                        .Where(f => new FileInfo(f).Length > 1000) // Only valid files
+                        .Where(f => new FileInfo(f).Length > 1000)
                         .ToArray();
                     
                     if (segmentFiles.Length == 0) {
