@@ -13,6 +13,7 @@ namespace ScreenRecorderApp {
     public partial class ClickOverlay : Window {
         [DllImport("user32.dll")] private static extern short GetAsyncKeyState(int vKey);
         [DllImport("user32.dll")] [return: MarshalAs(UnmanagedType.Bool)] private static extern bool GetCursorPos(out POINT lpPoint);
+        [DllImport("user32.dll")] private static extern int GetSystemMetrics(int nIndex);
         
         [StructLayout(LayoutKind.Sequential)]
         public struct POINT {
@@ -33,6 +34,14 @@ namespace ScreenRecorderApp {
         }
 
         private void ClickOverlay_Loaded(object sender, RoutedEventArgs e) {
+            // Force the window to cover the ENTIRE screen explicitly
+            this.Left = 0;
+            this.Top = 0;
+            this.Width = GetSystemMetrics(0);  // SM_CXSCREEN
+            this.Height = GetSystemMetrics(1); // SM_CYSCREEN
+            this.WindowState = WindowState.Normal; // Use explicit size instead of Maximized
+            this.Topmost = true;
+            
             timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
             timer.Tick += Timer_Tick;
             clickPlayer = new ClickSoundPlayer();
@@ -40,6 +49,12 @@ namespace ScreenRecorderApp {
 
         public void Start() { 
             this.Show();
+            this.Activate();
+            // Ensure coverage after showing
+            this.Left = 0;
+            this.Top = 0;
+            this.Width = GetSystemMetrics(0);
+            this.Height = GetSystemMetrics(1);
             this.Topmost = true;
             if (timer != null) timer.Start(); 
         }
@@ -57,18 +72,19 @@ namespace ScreenRecorderApp {
                 bool leftDown = (GetAsyncKeyState(0x01) & 0x8000) != 0;
                 bool rightDown = (GetAsyncKeyState(0x02) & 0x8000) != 0;
                 
-                // Get cursor position using native Windows API (no namespace conflicts)
+                // Get actual cursor position
                 GetCursorPos(out POINT cursorPos);
-                Point screenPos = new Point(cursorPos.X, cursorPos.Y);
-                Point windowPos = this.PointFromScreen(screenPos);
+                
+                // Since window covers entire screen at (0,0), use screen coords directly
+                Point windowPos = new Point(cursorPos.X, cursorPos.Y);
 
                 if (leftDown && !wasLeftDown) { 
                     SpawnRipple(windowPos, false); 
-                    clickPlayer.Play(); 
+                    if (clickPlayer != null) clickPlayer.Play(); 
                 }
                 if (rightDown && !wasRightDown) { 
                     SpawnRipple(windowPos, true); 
-                    clickPlayer.Play(); 
+                    if (clickPlayer != null) clickPlayer.Play(); 
                 }
 
                 wasLeftDown = leftDown;
@@ -78,32 +94,38 @@ namespace ScreenRecorderApp {
 
         private void SpawnRipple(Point pos, bool isRightClick) {
             try {
-                double size = 40;
+                // Bigger, more visible ripple
+                double size = 60;
+                Color rippleColor = isRightClick ? Colors.Cyan : Colors.Red;
+                
                 Ellipse ripple = new Ellipse {
-                    Stroke = isRightClick ? Brushes.Cyan : Brushes.Red,
-                    StrokeThickness = 3, 
+                    Stroke = new SolidColorBrush(rippleColor),
+                    StrokeThickness = 4, 
                     Width = size, 
                     Height = size,
-                    RenderTransformOrigin = new Point(0.5, 0.5)
+                    RenderTransformOrigin = new Point(0.5, 0.5),
+                    Opacity = 1.0
                 };
-                ripple.RenderTransform = new ScaleTransform(0.1, 0.1);
+                ripple.RenderTransform = new ScaleTransform(0.3, 0.3);
+                
                 Canvas.SetLeft(ripple, pos.X - size / 2);
                 Canvas.SetTop(ripple, pos.Y - size / 2);
                 ClickCanvas.Children.Add(ripple);
 
+                // Smooth expanding animation - longer duration for better visibility
                 var scaleX = new DoubleAnimation { 
-                    From = 0.1, To = 1.5, 
-                    Duration = TimeSpan.FromSeconds(0.4), 
+                    From = 0.3, To = 2.0, 
+                    Duration = TimeSpan.FromMilliseconds(600), 
                     EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut } 
                 };
                 var scaleY = new DoubleAnimation { 
-                    From = 0.1, To = 1.5, 
-                    Duration = TimeSpan.FromSeconds(0.4), 
+                    From = 0.3, To = 2.0, 
+                    Duration = TimeSpan.FromMilliseconds(600), 
                     EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut } 
                 };
                 var opacity = new DoubleAnimation { 
-                    From = 1, To = 0, 
-                    Duration = TimeSpan.FromSeconds(0.4) 
+                    From = 1.0, To = 0.0, 
+                    Duration = TimeSpan.FromMilliseconds(600) 
                 };
 
                 Storyboard.SetTarget(scaleX, ripple.RenderTransform);
@@ -117,7 +139,9 @@ namespace ScreenRecorderApp {
                 sb.Children.Add(scaleX); 
                 sb.Children.Add(scaleY); 
                 sb.Children.Add(opacity);
-                sb.Completed += (s, ev) => ClickCanvas.Children.Remove(ripple);
+                sb.Completed += (s, ev) => {
+                    try { ClickCanvas.Children.Remove(ripple); } catch { }
+                };
                 sb.Begin();
             } catch { }
         }
