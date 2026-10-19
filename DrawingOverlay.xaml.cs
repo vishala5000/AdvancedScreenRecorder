@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Threading;
+using System.Windows.Forms;  // ADDED - Required for Cursor.Position
 
 namespace ScreenRecorderApp {
     public partial class DrawingOverlay : Window {
@@ -54,13 +55,7 @@ namespace ScreenRecorderApp {
                 bool isLeftClickHeld = (GetAsyncKeyState(0x01) & 0x8000) != 0;
 
                 if (isLeftClickHeld) {
-                    // Get screen position of cursor
-                    Point screenPos = new Point(
-                        System.Windows.Forms.Cursor.Position.X,
-                        System.Windows.Forms.Cursor.Position.Y
-                    );
-                    
-                    // CORRECTLY convert screen coordinates to window coordinates
+                    Point screenPos = new Point(Cursor.Position.X, Cursor.Position.Y);
                     Point windowPos = this.PointFromScreen(screenPos);
 
                     if (!hasStartedDrawing) {
