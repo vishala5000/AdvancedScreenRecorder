@@ -26,6 +26,7 @@ namespace ScreenRecorderApp {
         private const int HOTKEY_PAUSE = 2;
         private const int HOTKEY_STOP = 3;
         private const int HOTKEY_DRAW = 4;
+        private const int HOTKEY_SELECT_AREA = 5;
         
         private const uint MOD_CONTROL = 0x0002;
         private const uint MOD_SHIFT = 0x0004;
@@ -44,6 +45,9 @@ namespace ScreenRecorderApp {
         private string logFile;
         private int screenWidth;
         private int screenHeight;
+        
+        // Area selection
+        private Rect? selectedArea = null;
         
         // System Tray Icon
         private Forms.NotifyIcon trayIcon;
@@ -91,7 +95,6 @@ namespace ScreenRecorderApp {
 
         private void InitializeTrayIcon() {
             try {
-                // Create context menu
                 trayMenu = new Forms.ContextMenuStrip();
                 trayMenu.BackColor = System.Drawing.Color.FromArgb(26, 26, 26);
                 trayMenu.ForeColor = System.Drawing.Color.White;
@@ -112,6 +115,9 @@ namespace ScreenRecorderApp {
                 var drawItem = new Forms.ToolStripMenuItem("✏️ Toggle Draw Mode");
                 drawItem.Click += (s, e) => Dispatcher.Invoke(() => Draw_Click(null, null));
                 
+                var selectAreaItem = new Forms.ToolStripMenuItem("📐 Select Recording Area");
+                selectAreaItem.Click += (s, e) => Dispatcher.Invoke(() => SelectArea_Click(null, null));
+                
                 var exitItem = new Forms.ToolStripMenuItem("❌ Exit");
                 exitItem.Click += (s, e) => ExitApplication();
                 
@@ -121,17 +127,16 @@ namespace ScreenRecorderApp {
                 trayMenu.Items.Add(pauseItem);
                 trayMenu.Items.Add(stopItem);
                 trayMenu.Items.Add(drawItem);
+                trayMenu.Items.Add(selectAreaItem);
                 trayMenu.Items.Add(new Forms.ToolStripSeparator());
                 trayMenu.Items.Add(exitItem);
                 
-                // Create tray icon
                 trayIcon = new Forms.NotifyIcon {
                     Visible = true,
                     ContextMenuStrip = trayMenu,
                     Text = "V Rec - Ready"
                 };
                 
-                // Load icon
                 string iconFilePath = Path.Combine(appFolder, "icon.ico");
                 string iconPngPath = Path.Combine(appFolder, "icon.png");
                 
@@ -146,7 +151,6 @@ namespace ScreenRecorderApp {
                     trayIcon.Icon = System.Drawing.SystemIcons.Application;
                 }
                 
-                // Double-click tray icon to show window
                 trayIcon.DoubleClick += (s, e) => ShowWindow();
                 
                 Log("System tray icon initialized");
@@ -204,6 +208,7 @@ namespace ScreenRecorderApp {
             RegisterHotKey(hWnd, HOTKEY_PAUSE, MOD_CONTROL | MOD_SHIFT, 0x50); // P
             RegisterHotKey(hWnd, HOTKEY_STOP, MOD_CONTROL | MOD_SHIFT, 0x53); // S
             RegisterHotKey(hWnd, HOTKEY_DRAW, MOD_CONTROL | MOD_SHIFT, 0x44); // D
+            RegisterHotKey(hWnd, HOTKEY_SELECT_AREA, MOD_CONTROL | MOD_SHIFT, 0x41); // A
             
             HwndSource source = HwndSource.FromHwnd(hWnd);
             source.AddHook(HwndHook);
@@ -232,6 +237,10 @@ namespace ScreenRecorderApp {
                         Dispatcher.Invoke(() => Draw_Click(null, null));
                         handled = true;
                         break;
+                    case HOTKEY_SELECT_AREA:
+                        Dispatcher.Invoke(() => SelectArea_Click(null, null));
+                        handled = true;
+                        break;
                 }
             }
             return IntPtr.Zero;
@@ -244,6 +253,7 @@ namespace ScreenRecorderApp {
                 UnregisterHotKey(helper.Handle, HOTKEY_PAUSE);
                 UnregisterHotKey(helper.Handle, HOTKEY_STOP);
                 UnregisterHotKey(helper.Handle, HOTKEY_DRAW);
+                UnregisterHotKey(helper.Handle, HOTKEY_SELECT_AREA);
             } catch { }
             
             try {
@@ -304,6 +314,44 @@ namespace ScreenRecorderApp {
             }
         }
 
+        private void SelectArea_Click(object sender, RoutedEventArgs e) {
+            try {
+                Log("Opening area selection overlay");
+                var areaSelector = new AreaSelectionOverlay();
+                bool? result = areaSelector.ShowDialog();
+                
+                if (result == true && areaSelector.SelectedArea.HasValue) {
+                    selectedArea = areaSelector.SelectedArea.Value;
+                    Log("Area selected: " + selectedArea.Value);
+                    
+                    ResetAreaButton.Visibility = Visibility.Visible;
+                    SelectAreaButton.Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(74, 144, 226));
+                    
+                    StatusText.Text = $"Area selected: {(int)selectedArea.Value.Width}x{(int)selectedArea.Value.Height} at ({(int)selectedArea.Value.X},{(int)selectedArea.Value.Y})";
+                    
+                    trayIcon.ShowBalloonTip(
+                        2000, 
+                        "V Rec", 
+                        $"Recording area set to {(int)selectedArea.Value.Width}x{(int)selectedArea.Value.Height}", 
+                        Forms.ToolTipIcon.Info
+                    );
+                } else {
+                    Log("Area selection cancelled");
+                }
+            } catch (Exception ex) {
+                Log("SelectArea error: " + ex.Message);
+                MessageBox.Show("Error selecting area: " + ex.Message, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void ResetArea_Click(object sender, RoutedEventArgs e) {
+            selectedArea = null;
+            ResetAreaButton.Visibility = Visibility.Collapsed;
+            SelectAreaButton.Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(74, 144, 226));
+            StatusText.Text = "Recording full screen. Videos saved to: " + outputFolder;
+            Log("Area reset to full screen");
+        }
+
         private void StartRec_Click(object sender, RoutedEventArgs e) {
             string ffmpegPath = Path.Combine(appFolder, "ffmpeg.exe");
             if (!File.Exists(ffmpegPath)) {
@@ -330,11 +378,29 @@ namespace ScreenRecorderApp {
 
             try {
                 string outFile = Path.Combine(tempFolder, "seg_" + segmentCount + ".mp4");
-                string args = "-y -f gdigrab -framerate 30 -video_size " + screenWidth + "x" + screenHeight + 
-                              " -draw_mouse 1 -i desktop -c:v libx264 -preset ultrafast -tune zerolatency " +
-                              "-crf 23 -pix_fmt yuv420p \"" + outFile + "\"";
+                string args;
                 
-                Log("Starting FFmpeg with args: " + args);
+                if (selectedArea.HasValue) {
+                    // Record selected area
+                    int x = (int)selectedArea.Value.X;
+                    int y = (int)selectedArea.Value.Y;
+                    int width = (int)selectedArea.Value.Width;
+                    int height = (int)selectedArea.Value.Height;
+                    
+                    args = "-y -f gdigrab -framerate 30 -video_size " + width + "x" + height + 
+                           " -offset_x " + x + " -offset_y " + y +
+                           " -draw_mouse 1 -i desktop -c:v libx264 -preset ultrafast -tune zerolatency " +
+                           "-crf 23 -pix_fmt yuv420p \"" + outFile + "\"";
+                    
+                    Log("Recording selected area: " + width + "x" + height + " at (" + x + "," + y + ")");
+                } else {
+                    // Record full screen
+                    args = "-y -f gdigrab -framerate 30 -video_size " + screenWidth + "x" + screenHeight + 
+                           " -draw_mouse 1 -i desktop -c:v libx264 -preset ultrafast -tune zerolatency " +
+                           "-crf 23 -pix_fmt yuv420p \"" + outFile + "\"";
+                    
+                    Log("Recording full screen: " + screenWidth + "x" + screenHeight);
+                }
                 
                 ffmpegProcess = new Process {
                     StartInfo = new ProcessStartInfo {
@@ -361,7 +427,9 @@ namespace ScreenRecorderApp {
                 Log("Recording started. Segment: " + segmentCount);
                 clickOverlay.Start();
                 
-                StatusText.Text = "Recording...";
+                StatusText.Text = selectedArea.HasValue ? 
+                    $"Recording area: {(int)selectedArea.Value.Width}x{(int)selectedArea.Value.Height}..." : 
+                    "Recording full screen...";
                 UpdateTrayTooltip("🔴 Recording...");
                 
                 trayIcon.ShowBalloonTip(2000, "V Rec", "Recording started. UI hidden.", Forms.ToolTipIcon.Info);
@@ -529,7 +597,9 @@ namespace ScreenRecorderApp {
                 }
             });
 
-            StatusText.Text = "Ready. Videos saved to: " + outputFolder;
+            StatusText.Text = selectedArea.HasValue ? 
+                $"Ready. Area: {(int)selectedArea.Value.Width}x{(int)selectedArea.Value.Height}. Videos: {outputFolder}" : 
+                "Ready. Videos saved to: " + outputFolder;
             UpdateTrayTooltip("Ready");
             StartRecButton.IsEnabled = true;
             isRecording = false;
@@ -553,6 +623,10 @@ namespace ScreenRecorderApp {
                 Log("Draw_Click error: " + ex.Message);
                 MessageBox.Show("Error starting draw mode: " + ex.Message, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
+        }
+
+        private void HelpButton_Click(object sender, RoutedEventArgs e) {
+            HelpPopup.IsOpen = !HelpPopup.IsOpen;
         }
 
         private void MinimizeToTray_Click(object sender, RoutedEventArgs e) => MinimizeToTray();
