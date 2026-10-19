@@ -10,6 +10,15 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
+    - name: Download FFmpeg
+      run: |
+        Invoke-WebRequest -Uri "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip" -OutFile "ffmpeg.zip"
+        Expand-Archive -Path "ffmpeg.zip" -DestinationPath "ffmpeg_temp" -Force
+        $ffmpegExe = Get-ChildItem -Path "ffmpeg_temp" -Recurse -Filter "ffmpeg.exe" | Select-Object -First 1
+        Copy-Item $ffmpegExe.FullName -Destination "ffmpeg.exe"
+        Remove-Item "ffmpeg.zip" -Force
+        Remove-Item "ffmpeg_temp" -Recurse -Force
+
     - name: Setup MSBuild
       uses: microsoft/setup-msbuild@v2
 
