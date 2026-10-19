@@ -62,7 +62,7 @@ namespace ScreenRecorderApp {
                 Directory.CreateDirectory("temp_segments");
             }
 
-            string outFile = Path.Combine("temp_segments", "seg_" + segmentCount + ".mp4");
+            string outFile = System.IO.Path.Combine("temp_segments", "seg_" + segmentCount + ".mp4");
             string args = "-f gdigrab -framerate 30 -video_size 1920x1080 -draw_mouse 1 -i desktop -c:v libx264 -preset ultrafast -tune zerolatency -crf 23 -pix_fmt yuv420p \"" + outFile + "\"";
             
             ffmpegProcess = new Process {
@@ -74,8 +74,6 @@ namespace ScreenRecorderApp {
             isPaused = false;
             segmentCount++;
             StatusText.Text = "Recording 1080p...";
-            
-            // Activate click animations and sounds
             clickOverlay.Start();
         }
 
@@ -89,23 +87,21 @@ namespace ScreenRecorderApp {
         private async void StopRec_Click(object sender, RoutedEventArgs e) {
             if (!isRecording) return;
             if (ffmpegProcess != null && !ffmpegProcess.HasExited) ffmpegProcess.Kill();
-            
-            // Deactivate click animations
             clickOverlay.Stop();
 
             StatusText.Text = "Processing & Mixing Audio... Please wait.";
             StartRecButton.IsEnabled = false;
             
             await Task.Run(() => {
-                string finalVideo = Path.Combine("temp_segments", "final_video.mp4");
+                string finalVideo = System.IO.Path.Combine("temp_segments", "final_video.mp4");
                 
                 if (segmentCount > 1) {
-                    string listFile = Path.Combine("temp_segments", "list.txt");
+                    string listFile = System.IO.Path.Combine("temp_segments", "list.txt");
                     var files = Directory.GetFiles("temp_segments", "seg_*.mp4").OrderBy(f => f);
-                    File.WriteAllLines(listFile, files.Select(f => "file '" + Path.GetFullPath(f) + "'"));
+                    File.WriteAllLines(listFile, files.Select(f => "file '" + System.IO.Path.GetFullPath(f) + "'"));
                     Process.Start("ffmpeg.exe", "-f concat -safe 0 -i \"" + listFile + "\" -c copy \"" + finalVideo + "\"").WaitForExit();
                 } else {
-                    File.Move(Path.Combine("temp_segments", "seg_0.mp4"), finalVideo);
+                    File.Move(System.IO.Path.Combine("temp_segments", "seg_0.mp4"), finalVideo);
                 }
 
                 if (File.Exists("bg.mp3")) {
