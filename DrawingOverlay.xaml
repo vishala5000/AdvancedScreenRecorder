@@ -1,8 +1,19 @@
 <Window x:Class="ScreenRecorderApp.DrawingOverlay"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        WindowStyle="None" AllowsTransparency="True" Background="Transparent"
-        Topmost="True" WindowState="Maximized" ShowInTaskbar="False"
-        IsHitTestVisible="False">
-    <Polyline x:Name="DrawLine" Stroke="#E60000" StrokeThickness="4" StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+        WindowStyle="None" 
+        AllowsTransparency="True" 
+        Background="Transparent"
+        Topmost="True" 
+        ShowInTaskbar="False"
+        IsHitTestVisible="False"
+        WindowState="Maximized">
+    <Grid>
+        <Polyline x:Name="DrawLine" 
+                  Stroke="#E60000" 
+                  StrokeThickness="4" 
+                  StrokeLineJoin="Round" 
+                  StrokeStartLineCap="Round" 
+                  StrokeEndLineCap="Round"/>
+    </Grid>
 </Window>
