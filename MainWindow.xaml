@@ -1,7 +1,7 @@
 <Window x:Class="ScreenRecorderApp.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="V Rec" Height="420" Width="700"
+        Title="V Rec" Height="480" Width="700"
         WindowStyle="None" AllowsTransparency="True" 
         Background="Transparent"
         Foreground="White" WindowStartupLocation="CenterScreen"
@@ -16,25 +16,49 @@
             <Grid.RowDefinitions>
                 <RowDefinition Height="50"/>
                 <RowDefinition Height="*"/>
-                <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
             
             <Border Grid.Row="0" Background="#000000" CornerRadius="12,12,0,0" MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
                 <Grid>
                     <TextBlock Text="V REC | 1080p HD" VerticalAlignment="Center" Margin="20,0" FontWeight="Bold" FontSize="16" Foreground="#E60000"/>
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                        <!-- Help Dropdown Button -->
+                        <Button x:Name="HelpButton" Content="❓" Width="50" Height="50" Background="Transparent" Foreground="White" BorderThickness="0" Click="HelpButton_Click" FontSize="18" FontWeight="Bold"/>
                         <Button Content="−" Width="50" Height="50" Background="Transparent" Foreground="White" BorderThickness="0" Click="MinimizeToTray_Click" FontSize="20" FontWeight="Bold"/>
                         <Button Content="✕" Width="50" Height="50" Background="#E60000" Foreground="White" BorderThickness="0" Click="Exit_Click" FontSize="18" FontWeight="Bold"/>
                     </StackPanel>
+                    
+                    <!-- Dropdown Popup for Shortcuts -->
+                    <Popup x:Name="HelpPopup" PlacementTarget="{Binding ElementName=HelpButton}" Placement="Bottom" StaysOpen="False">
+                        <Border Background="#0D0D0D" BorderBrush="#333333" BorderThickness="1" CornerRadius="8" Padding="20">
+                            <StackPanel>
+                                <TextBlock Text="⌨️ Keyboard Shortcuts" FontSize="14" FontWeight="Bold" Foreground="#E60000" Margin="0,0,0,15"/>
+                                <TextBlock Text="Ctrl+Shift+R" FontSize="12" Foreground="White" Margin="0,0,0,5"/>
+                                <TextBlock Text="   → Start Recording" FontSize="11" Foreground="#AAAAAA" Margin="0,0,0,10"/>
+                                <TextBlock Text="Ctrl+Shift+P" FontSize="12" Foreground="White" Margin="0,0,0,5"/>
+                                <TextBlock Text="   → Pause Recording" FontSize="11" Foreground="#AAAAAA" Margin="0,0,0,10"/>
+                                <TextBlock Text="Ctrl+Shift+S" FontSize="12" Foreground="White" Margin="0,0,0,5"/>
+                                <TextBlock Text="   → Stop Recording" FontSize="11" Foreground="#AAAAAA" Margin="0,0,0,10"/>
+                                <TextBlock Text="Ctrl+Shift+D" FontSize="12" Foreground="White" Margin="0,0,0,5"/>
+                                <TextBlock Text="   → Toggle Draw Mode" FontSize="11" Foreground="#AAAAAA" Margin="0,0,0,10"/>
+                                <TextBlock Text="Ctrl+Shift+A" FontSize="12" Foreground="White" Margin="0,0,0,5"/>
+                                <TextBlock Text="   → Select Recording Area" FontSize="11" Foreground="#AAAAAA" Margin="0,0,0,10"/>
+                                <TextBlock Text="Esc" FontSize="12" Foreground="White" Margin="0,0,0,5"/>
+                                <TextBlock Text="   → Stop Drawing" FontSize="11" Foreground="#AAAAAA"/>
+                            </StackPanel>
+                        </Border>
+                    </Popup>
                 </Grid>
             </Border>
 
             <Grid Grid.Row="1" Margin="30,20">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
                 
+                <!-- Main Control Buttons -->
                 <StackPanel Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,10">
                     <Button x:Name="StartRecButton" Height="55" Width="140" Margin="8,0" Background="#E60000" Foreground="White" BorderThickness="0" FontSize="15" FontWeight="Bold" Click="StartRec_Click">
                         <Button.Content>
@@ -125,21 +149,52 @@
                     </Button>
                 </StackPanel>
                 
-                <TextBlock x:Name="StatusText" Grid.Row="1" Text="Initializing..." VerticalAlignment="Center" HorizontalAlignment="Center" TextAlignment="Center" Foreground="#AAAAAA" FontSize="14"/>
-            </Grid>
-            
-            <Border Grid.Row="2" Background="#0D0D0D" CornerRadius="0,0,12,12" Padding="20,15">
-                <StackPanel>
-                    <TextBlock Text="⌨️ Keyboard Shortcuts" FontSize="13" FontWeight="Bold" Foreground="#E60000" Margin="0,0,0,10"/>
-                    <WrapPanel>
-                        <TextBlock Text="Ctrl+Shift+R = Start  |  " Foreground="#888888" FontSize="11"/>
-                        <TextBlock Text="Ctrl+Shift+P = Pause  |  " Foreground="#888888" FontSize="11"/>
-                        <TextBlock Text="Ctrl+Shift+S = Stop  |  " Foreground="#888888" FontSize="11"/>
-                        <TextBlock Text="Ctrl+Shift+D = Draw  |  " Foreground="#888888" FontSize="11"/>
-                        <TextBlock Text="Esc = Stop Drawing" Foreground="#888888" FontSize="11"/>
-                    </WrapPanel>
+                <!-- Area Selection Button -->
+                <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,15">
+                    <Button x:Name="SelectAreaButton" Height="50" Width="200" Background="#4A90E2" Foreground="White" BorderThickness="0" FontSize="14" FontWeight="Bold" Click="SelectArea_Click">
+                        <Button.Content>
+                            <StackPanel>
+                                <TextBlock Text="📐 SELECT AREA" HorizontalAlignment="Center" FontSize="14" FontWeight="Bold"/>
+                                <TextBlock Text="Ctrl+Shift+A" HorizontalAlignment="Center" FontSize="10" Opacity="0.7" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </Button.Content>
+                        <Button.Style>
+                            <Style TargetType="Button">
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border Background="{TemplateBinding Background}" CornerRadius="8">
+                                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                            </Border>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+                    <Button x:Name="ResetAreaButton" Height="50" Width="120" Margin="10,0,0,0" Background="#666666" Foreground="White" BorderThickness="0" FontSize="13" Click="ResetArea_Click" Visibility="Collapsed">
+                        <Button.Content>
+                            <TextBlock Text="Reset to Full Screen" HorizontalAlignment="Center" FontSize="13"/>
+                        </Button.Content>
+                        <Button.Style>
+                            <Style TargetType="Button">
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border Background="{TemplateBinding Background}" CornerRadius="8">
+                                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                            </Border>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </Button.Style>
+                    </Button>
                 </StackPanel>
-            </Border>
+                
+                <!-- Status Text -->
+                <TextBlock x:Name="StatusText" Grid.Row="2" Text="Initializing..." VerticalAlignment="Center" HorizontalAlignment="Center" TextAlignment="Center" Foreground="#AAAAAA" FontSize="14"/>
+            </Grid>
         </Grid>
     </Border>
 </Window>
