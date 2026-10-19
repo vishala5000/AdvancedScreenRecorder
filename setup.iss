@@ -12,8 +12,8 @@ SolidCompression=yes
 Source: "bin\Release\net48\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
 
 [Icons]
-Name: "{group}\V Rec"; Filename: "{app}\V Rec.exe"; IconFilename: "{app}\icon.png"
-Name: "{commondesktop}\V Rec"; Filename: "{app}\V Rec.exe"; IconFilename: "{app}\icon.png"
+Name: "{group}\V Rec"; Filename: "{app}\V Rec.exe"
+Name: "{commondesktop}\V Rec"; Filename: "{app}\V Rec.exe"
 
 [Run]
 Filename: "{app}\V Rec.exe"; Description: "Launch V Rec"; Flags: nowait postinstall skipifsilent
