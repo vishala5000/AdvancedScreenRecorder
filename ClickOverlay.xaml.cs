@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -16,16 +17,15 @@ namespace ScreenRecorderApp {
         private DispatcherTimer timer;
         private bool wasLeftDown = false;
         private bool wasRightDown = false;
-        private SoundPlayer clickSound;
+        private ClickSoundPlayer clickPlayer;
 
         public ClickOverlay() {
             InitializeComponent();
-            timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) }; // 60fps polling
+            timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
             timer.Tick += Timer_Tick;
             
-            if (System.IO.File.Exists("click.wav")) {
-                clickSound = new SoundPlayer("click.wav");
-            }
+            // Initialize the auto-generated click sound
+            clickPlayer = new ClickSoundPlayer();
         }
 
         public void Start() {
@@ -47,11 +47,11 @@ namespace ScreenRecorderApp {
 
             if (leftDown && !wasLeftDown) {
                 SpawnRipple(pos, false);
-                try { clickSound?.Play(); } catch { }
+                clickPlayer.Play();
             }
             if (rightDown && !wasRightDown) {
                 SpawnRipple(pos, true);
-                try { clickSound?.Play(); } catch { }
+                clickPlayer.Play();
             }
 
             wasLeftDown = leftDown;
@@ -61,7 +61,7 @@ namespace ScreenRecorderApp {
         private void SpawnRipple(Point pos, bool isRightClick) {
             double size = 40;
             Ellipse ripple = new Ellipse {
-                Stroke = isRightClick ? Brushes.Cyan : Brushes.Red, // Cyan for Right, Red for Left
+                Stroke = isRightClick ? Brushes.Cyan : Brushes.Red,
                 StrokeThickness = 3,
                 Width = size,
                 Height = size,
@@ -74,7 +74,6 @@ namespace ScreenRecorderApp {
             Canvas.SetTop(ripple, pos.Y - size / 2);
             ClickCanvas.Children.Add(ripple);
 
-            // Smooth expanding and fading animation
             var scaleXAnim = new DoubleAnimation { From = 0.1, To = 1.5, Duration = TimeSpan.FromSeconds(0.4), EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut } };
             var scaleYAnim = new DoubleAnimation { From = 0.1, To = 1.5, Duration = TimeSpan.FromSeconds(0.4), EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut } };
             var opacityAnim = new DoubleAnimation { From = 1, To = 0, Duration = TimeSpan.FromSeconds(0.4) };
@@ -91,8 +90,61 @@ namespace ScreenRecorderApp {
             sb.Children.Add(scaleYAnim);
             sb.Children.Add(opacityAnim);
             
-            sb.Completed += (s, ev) => ClickCanvas.Children.Remove(ripple); // Clean up to save memory
+            sb.Completed += (s, ev) => ClickCanvas.Children.Remove(ripple);
             sb.Begin();
+        }
+    }
+
+    // ==========================================
+    // AUTO-GENERATED CLICK SOUND ENGINE
+    // ==========================================
+    public class ClickSoundPlayer {
+        private SoundPlayer player;
+
+        public ClickSoundPlayer() {
+            string tempWav = Path.Combine(Path.GetTempPath(), "vrec_click.wav");
+            if (!File.Exists(tempWav)) {
+                GenerateClickWav(tempWav);
+            }
+            player = new SoundPlayer(tempWav);
+        }
+
+        public void Play() {
+            try { player.Play(); } catch { }
+        }
+
+        private void GenerateClickWav(string path) {
+            int sampleRate = 22050;
+            int durationMs = 20;
+            int samples = sampleRate * durationMs / 1000;
+            
+            using (var fs = new FileStream(path, FileMode.Create)) {
+                using (var writer = new BinaryWriter(fs)) {
+                    // Write standard WAV header
+                    writer.Write(System.Text.Encoding.ASCII.GetBytes("RIFF"));
+                    writer.Write(36 + samples * 2);
+                    writer.Write(System.Text.Encoding.ASCII.GetBytes("WAVE"));
+                    writer.Write(System.Text.Encoding.ASCII.GetBytes("fmt "));
+                    writer.Write(16);
+                    writer.Write((short)1); // PCM
+                    writer.Write((short)1); // Mono
+                    writer.Write(sampleRate);
+                    writer.Write(sampleRate * 2);
+                    writer.Write((short)2);
+                    writer.Write((short)16);
+                    writer.Write(System.Text.Encoding.ASCII.GetBytes("data"));
+                    writer.Write(samples * 2);
+                    
+                    // Mathematically synthesize a crisp, high-frequency click burst
+                    for (int i = 0; i < samples; i++) {
+                        double t = (double)i / sampleRate;
+                        double freq = 1500;
+                        double amp = Math.Exp(-t * 150); // Fast decay for a "click" feel
+                        short val = (short)(Math.Sin(2 * Math.PI * freq * t) * amp * short.MaxValue * 0.8);
+                        writer.Write(val);
+                    }
+                }
+            }
         }
     }
 }
