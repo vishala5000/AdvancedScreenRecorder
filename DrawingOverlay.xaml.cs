@@ -7,6 +7,13 @@ using System.Windows.Threading;
 namespace ScreenRecorderApp {
     public partial class DrawingOverlay : Window {
         [DllImport("user32.dll")] private static extern short GetAsyncKeyState(int vKey);
+        [DllImport("user32.dll")] private static extern bool GetCursorPos(out POINT lpPoint);
+        
+        [StructLayout(LayoutKind.Sequential)]
+        public struct POINT {
+            public int X;
+            public int Y;
+        }
 
         private bool isDrawing = false;
         private Point lastPos;
@@ -54,7 +61,12 @@ namespace ScreenRecorderApp {
                 bool isLeftClickHeld = (GetAsyncKeyState(0x01) & 0x8000) != 0;
 
                 if (isLeftClickHeld) {
-                    Point windowPos = Mouse.GetPosition(this);
+                    // Get actual cursor position from Windows API
+                    POINT cursorPos;
+                    GetCursorPos(out cursorPos);
+                    
+                    // Convert screen coordinates to window coordinates
+                    Point windowPos = new Point(cursorPos.X - this.Left, cursorPos.Y - this.Top);
 
                     if (!hasStartedDrawing) {
                         DrawLine.Points.Add(windowPos);
