@@ -8,11 +8,17 @@ using System.Windows.Shapes;
 using System.Windows.Threading;
 using System.Runtime.InteropServices;
 using System.Media;
-using System.Windows.Forms;
 
 namespace ScreenRecorderApp {
     public partial class ClickOverlay : Window {
         [DllImport("user32.dll")] private static extern short GetAsyncKeyState(int vKey);
+        [DllImport("user32.dll")] [return: MarshalAs(UnmanagedType.Bool)] private static extern bool GetCursorPos(out POINT lpPoint);
+        
+        [StructLayout(LayoutKind.Sequential)]
+        public struct POINT {
+            public int X;
+            public int Y;
+        }
         
         private DispatcherTimer timer;
         private bool wasLeftDown = false;
@@ -51,7 +57,9 @@ namespace ScreenRecorderApp {
                 bool leftDown = (GetAsyncKeyState(0x01) & 0x8000) != 0;
                 bool rightDown = (GetAsyncKeyState(0x02) & 0x8000) != 0;
                 
-                Point screenPos = new Point(Cursor.Position.X, Cursor.Position.Y);
+                // Get cursor position using native Windows API (no namespace conflicts)
+                GetCursorPos(out POINT cursorPos);
+                Point screenPos = new Point(cursorPos.X, cursorPos.Y);
                 Point windowPos = this.PointFromScreen(screenPos);
 
                 if (leftDown && !wasLeftDown) { 
