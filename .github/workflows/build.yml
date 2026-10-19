@@ -3,8 +3,6 @@ name: Build Windows App
 on:
   push:
     branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
 
 jobs:
   build:
@@ -25,8 +23,18 @@ jobs:
     - name: Build the Application
       run: msbuild ScreenRecorderApp.csproj /p:Configuration=Release /p:DeployOnBuild=false
 
-    - name: Upload Artifact
+    - name: Create Portable ZIP
+      run: |
+        Compress-Archive -Path "bin\Release\net48\*" -DestinationPath "VRec_Portable.zip"
+
+    - name: Compile Inno Setup Installer
+      run: |
+        & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" setup.iss
+
+    - name: Upload Artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: V-Rec-Windows-EXE
-        path: bin/Release/net48/V Rec.exe
+        name: V-Rec-Releases
+        path: |
+          VRec_Portable.zip
+          Output\VRec_Setup.exe
