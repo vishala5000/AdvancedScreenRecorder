@@ -7,7 +7,6 @@ on:
 jobs:
   build:
     runs-on: windows-latest
-
     steps:
     - uses: actions/checkout@v4
 
@@ -24,17 +23,17 @@ jobs:
       run: msbuild ScreenRecorderApp.csproj /p:Configuration=Release /p:DeployOnBuild=false
 
     - name: Create Portable ZIP
-      run: |
-        Compress-Archive -Path "bin\Release\net48\*" -DestinationPath "VRec_Portable.zip"
+      run: Compress-Archive -Path "bin\Release\net48\*" -DestinationPath "VRec_Portable.zip"
 
     - name: Compile Inno Setup Installer
       run: |
+        New-Item -ItemType Directory -Force -Path Output
         & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" setup.iss
 
     - name: Upload Artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: V-Rec-Releases
+        name: V-Rec-Final-Releases
         path: |
           VRec_Portable.zip
-          Output\VRec_Setup.exe
+          Output/VRec_Setup.exe
