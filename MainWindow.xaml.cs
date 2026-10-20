@@ -378,19 +378,21 @@ namespace ScreenRecorderApp {
                     int fontSize1 = Math.Max(16, Math.Min(120, calcSize1));
                     int fontSize2 = Math.Max(12, Math.Min(80, calcSize2));
                     
-                    // CRITICAL FIX: Copy font to temp folder so FFmpeg can find it reliably without path escaping issues
+                    // Copy font to temp folder so FFmpeg can find it reliably
                     string tempFontPath = Path.Combine(tempFolder, "font.ttf");
                     string appFontPath = Path.Combine(appFolder, "font.ttf");
                     if (File.Exists(appFontPath)) {
                         File.Copy(appFontPath, tempFontPath, true);
                     }
                     
-                    // Now FFmpeg can just use "fontfile=font.ttf"
+                    // Use temp font, or fallback to arial
                     string fontArg = File.Exists(tempFontPath) ? "fontfile=font.ttf:" : "fontfile=arial:";
                     
+                    // CRITICAL FIX: Removed text_wrap parameters that were causing "Option not found" errors in some FFmpeg builds.
+                    // The text is short enough that it will fit perfectly centered without wrapping in almost all resolutions.
                     string outroArgs = $"-y -f lavfi -i color=c=black:s={recordWidth}x{recordHeight}:d=7 " +
-                                       $"-vf \"drawtext={fontArg}text='Like, Share and Subscribe':fontcolor=#E60000:fontsize={fontSize1}:x=(w-text_w)/2:y=(h-text_h)/2-20:text_wrap=1:text_wrap_w=w-40:line_spacing=5:enable='between(t,0.5,7)'," +
-                                       $"drawtext={fontArg}text='For More Videos!':fontcolor=white:fontsize={fontSize2}:x=(w-text_w)/2:y=(h-text_h)/2+30:text_wrap=1:text_wrap_w=w-40:line_spacing=5:enable='between(t,1.5,7)'\" " +
+                                       $"-vf \"drawtext={fontArg}text='Like, Share and Subscribe':fontcolor=#E60000:fontsize={fontSize1}:x=(w-text_w)/2:y=(h-text_h)/2-20:enable='between(t,0.5,7)'," +
+                                       $"drawtext={fontArg}text='For More Videos!':fontcolor=white:fontsize={fontSize2}:x=(w-text_w)/2:y=(h-text_h)/2+30:enable='between(t,1.5,7)'\" " +
                                        $"-c:v libx264 -preset ultrafast -pix_fmt yuv420p \"{outroFile}\"";
                     
                     var outroProcess = Process.Start(new ProcessStartInfo {
@@ -434,7 +436,6 @@ namespace ScreenRecorderApp {
                             Log("Outro append failed, proceeding with original video.");
                         }
                     } else {
-                        // This will now log the EXACT FFmpeg error so we know why it failed
                         Log("Outro generation failed with code " + outroProcess.ExitCode + ": " + outroError);
                     }
 
