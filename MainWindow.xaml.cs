@@ -46,6 +46,10 @@ namespace ScreenRecorderApp {
         private int screenWidth;
         private int screenHeight;
         
+        // Track recording dimensions for matching the outro
+        private int recordWidth;
+        private int recordHeight;
+        
         private Rect? selectedArea = null;
         private Forms.NotifyIcon trayIcon;
         private Forms.ContextMenuStrip trayMenu;
@@ -272,23 +276,20 @@ namespace ScreenRecorderApp {
             try {
                 string outFile = Path.Combine(tempFolder, "seg_" + segmentCount + ".mp4");
                 
-                int width = screenWidth;
-                int height = screenHeight;
-                int offsetX = 0;
-                int offsetY = 0;
-
                 if (selectedArea.HasValue) {
-                    width = (int)selectedArea.Value.Width;
-                    height = (int)selectedArea.Value.Height;
-                    offsetX = (int)selectedArea.Value.X;
-                    offsetY = (int)selectedArea.Value.Y;
-                    
-                    // CRITICAL FIX: H.264 requires width and height to be divisible by 2
-                    if (width % 2 != 0) width -= 1;
-                    if (height % 2 != 0) height -= 1;
+                    recordWidth = (int)selectedArea.Value.Width;
+                    recordHeight = (int)selectedArea.Value.Height;
+                    if (recordWidth % 2 != 0) recordWidth -= 1;
+                    if (recordHeight % 2 != 0) recordHeight -= 1;
+                } else {
+                    recordWidth = screenWidth;
+                    recordHeight = screenHeight;
                 }
 
-                string args = $"-y -f gdigrab -framerate 30 -video_size {width}x{height} -offset_x {offsetX} -offset_y {offsetY} -draw_mouse 1 -i desktop -c:v libx264 -preset ultrafast -crf 23 -pix_fmt yuv420p \"{outFile}\"";
+                int offsetX = selectedArea.HasValue ? (int)selectedArea.Value.X : 0;
+                int offsetY = selectedArea.HasValue ? (int)selectedArea.Value.Y : 0;
+
+                string args = $"-y -f gdigrab -framerate 30 -video_size {recordWidth}x{recordHeight} -offset_x {offsetX} -offset_y {offsetY} -draw_mouse 1 -i desktop -c:v libx264 -preset ultrafast -crf 23 -pix_fmt yuv420p \"{outFile}\"";
                 
                 Log("Starting FFmpeg: " + args);
                 
@@ -348,7 +349,7 @@ namespace ScreenRecorderApp {
             StopFFmpegGracefully();
             clickOverlay.Stop();
 
-            StatusText.Text = "⚙️ Processing...";
+            StatusText.Text = "⚙️ Processing & Adding Outro...";
             StartRecButton.IsEnabled = false;
             
             await Task.Run(() => {
@@ -361,25 +362,83 @@ namespace ScreenRecorderApp {
                     
                     if (validSegments.Length == 0) throw new Exception("No video data recorded.");
                     
+                    // 1. Concatenate segments
                     if (validSegments.Length > 1) {
                         string listFile = Path.Combine(tempFolder, "list.txt");
                         File.WriteAllLines(listFile, validSegments.OrderBy(f => f).Select(f => "file '" + Path.GetFullPath(f).Replace("'", "''") + "'"));
                         var concat = Process.Start(new ProcessStartInfo { FileName = ffmpegPath, Arguments = $"-y -f concat -safe 0 -i \"{listFile}\" -c copy \"{finalVideo}\"", UseShellExecute = false, CreateNoWindow = true, WorkingDirectory = tempFolder });
                         concat.WaitForExit();
-                        Log("Concat exit code: " + concat.ExitCode);
                         if (concat.ExitCode != 0 || !File.Exists(finalVideo)) throw new Exception("Concat failed.");
                     } else {
                         File.Copy(validSegments[0], finalVideo, true);
                     }
 
+                    // 2. Generate Engaging 7-Second Outro
+                    Log("Generating 7-second animated outro...");
+                    string outroFile = Path.Combine(tempFolder, "outro.mp4");
+                    
+                    // Dynamic font sizing based on resolution for best appearance
+                    string fontSize1 = recordWidth < 800 ? "32" : "56";
+                    string fontSize2 = recordWidth < 800 ? "24" : "42";
+                    
+                    string outroArgs = $"-y -f lavfi -i color=c=black:s={recordWidth}x{recordHeight}:d=7 -vf \"drawtext=text='Like, Share and Subscribe':fontcolor=#E60000:fontsize={fontSize1}:x=(w-text_w)/2:y=(h-text_h)/2-30:enable='between(t,0.5,7)',drawtext=text='For More Videos!':fontcolor=white:fontsize={fontSize2}:x=(w-text_w)/2:y=(h-text_h)/2+40:enable='between(t,1.5,7)'\" -c:v libx264 -preset ultrafast -pix_fmt yuv420p \"{outroFile}\"";
+                    
+                    var outroProcess = Process.Start(new ProcessStartInfo {
+                        FileName = ffmpegPath,
+                        Arguments = outroArgs,
+                        UseShellExecute = false,
+                        CreateNoWindow = true,
+                        WorkingDirectory = tempFolder
+                    });
+                    outroProcess.WaitForExit();
+
+                    // 3. Append Outro to Main Video
+                    if (outroProcess.ExitCode == 0 && File.Exists(outroFile)) {
+                        Log("Outro generated successfully. Appending to video...");
+                        string listOutro = Path.Combine(tempFolder, "list_outro.txt");
+                        string finalWithOutro = Path.Combine(tempFolder, "final_with_outro.mp4");
+                        
+                        File.WriteAllLines(listOutro, new[] {
+                            $"file '{Path.GetFullPath(finalVideo).Replace("'", "''")}'",
+                            $"file '{Path.GetFullPath(outroFile).Replace("'", "''")}'"
+                        });
+                        
+                        var concatOutro = Process.Start(new ProcessStartInfo {
+                            FileName = ffmpegPath,
+                            Arguments = $"-y -f concat -safe 0 -i \"{listOutro}\" -c copy \"{finalWithOutro}\"",
+                            UseShellExecute = false,
+                            CreateNoWindow = true,
+                            WorkingDirectory = tempFolder
+                        });
+                        concatOutro.WaitForExit();
+                        
+                        if (concatOutro.ExitCode == 0 && File.Exists(finalWithOutro)) {
+                            File.Delete(finalVideo);
+                            File.Move(finalWithOutro, finalVideo);
+                            Log("Outro appended successfully.");
+                        } else {
+                            Log("Outro append failed, proceeding with original video.");
+                        }
+                    } else {
+                        Log("Outro generation failed, proceeding without it.");
+                    }
+
+                    // 4. Mix Background Music (if exists)
                     string timestamp = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss");
                     string finalFilename = Path.Combine(outputFolder, "VRec_" + timestamp + ".mp4");
                     string bgPath = Path.Combine(appFolder, "bg.mp3");
 
                     if (File.Exists(bgPath)) {
-                        var mix = Process.Start(new ProcessStartInfo { FileName = ffmpegPath, Arguments = $"-y -i \"{finalVideo}\" -stream_loop -1 -i \"{bgPath}\" -c:v copy -c:a aac -shortest -map 0:v:0 -map 1:a:0 \"{finalFilename}\"", UseShellExecute = false, CreateNoWindow = true, WorkingDirectory = tempFolder });
+                        Log("Mixing with background music...");
+                        var mix = Process.Start(new ProcessStartInfo { 
+                            FileName = ffmpegPath, 
+                            Arguments = $"-y -i \"{finalVideo}\" -stream_loop -1 -i \"{bgPath}\" -c:v copy -c:a aac -shortest -map 0:v:0 -map 1:a:0 \"{finalFilename}\"", 
+                            UseShellExecute = false, 
+                            CreateNoWindow = true, 
+                            WorkingDirectory = tempFolder 
+                        });
                         mix.WaitForExit();
-                        Log("Mix exit code: " + mix.ExitCode);
+                        
                         if (mix.ExitCode != 0 || !File.Exists(finalFilename)) throw new Exception("Audio mix failed.");
                         try { File.Delete(finalVideo); } catch { }
                     } else {
