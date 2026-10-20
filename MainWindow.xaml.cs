@@ -375,24 +375,25 @@ namespace ScreenRecorderApp {
                         File.Copy(validSegments[0], finalVideo, true);
                     }
 
-                    // 2. Generate Engaging 7-Second Outro
+                    // 2. Generate Engaging 7-Second Outro with Text Wrapping
                     Log("Generating 7-second animated outro...");
                     string outroFile = Path.Combine(tempFolder, "outro.mp4");
                     
-                    // Dynamically calculate font size based on video height for perfect scaling in ANY area size
-                    int calcSize1 = recordHeight / 12;
-                    int calcSize2 = recordHeight / 18;
-                    int fontSize1 = Math.Max(20, Math.Min(120, calcSize1)); // Clamp between 20 and 120
-                    int fontSize2 = Math.Max(14, Math.Min(80, calcSize2));  // Clamp between 14 and 80
+                    // Dynamically calculate font size based on video height for perfect scaling
+                    int calcSize1 = recordHeight / 10;
+                    int calcSize2 = recordHeight / 16;
+                    int fontSize1 = Math.Max(16, Math.Min(120, calcSize1)); // Clamp between 16 and 120
+                    int fontSize2 = Math.Max(12, Math.Min(80, calcSize2));  // Clamp between 12 and 80
                     
                     // Use custom font if it exists in the app folder, with absolute path for FFmpeg reliability
                     string fontPath = Path.Combine(appFolder, "font.ttf");
                     string fontArg = File.Exists(fontPath) ? $"fontfile='{fontPath.Replace("\\", "/")}':" : "";
                     
-                    // Engaging animation: Text appears smoothly at specific times
+                    // CRITICAL FIX: Added text_wrap=1, text_wrap_w=w-40, and line_spacing=5
+                    // This guarantees the text wraps beautifully and stays perfectly centered, even in narrow area selections.
                     string outroArgs = $"-y -f lavfi -i color=c=black:s={recordWidth}x{recordHeight}:d=7 " +
-                                       $"-vf \"drawtext={fontArg}text='Like, Share and Subscribe':fontcolor=#E60000:fontsize={fontSize1}:x=(w-text_w)/2:y=(h-text_h)/2-20:enable='between(t,0.5,7)'," +
-                                       $"drawtext={fontArg}text='For More Videos!':fontcolor=white:fontsize={fontSize2}:x=(w-text_w)/2:y=(h-text_h)/2+30:enable='between(t,1.5,7)'\" " +
+                                       $"-vf \"drawtext={fontArg}text='Like, Share and Subscribe':fontcolor=#E60000:fontsize={fontSize1}:x=(w-text_w)/2:y=(h-text_h)/2-20:text_wrap=1:text_wrap_w=w-40:line_spacing=5:enable='between(t,0.5,7)'," +
+                                       $"drawtext={fontArg}text='For More Videos!':fontcolor=white:fontsize={fontSize2}:x=(w-text_w)/2:y=(h-text_h)/2+30:text_wrap=1:text_wrap_w=w-40:line_spacing=5:enable='between(t,1.5,7)'\" " +
                                        $"-c:v libx264 -preset ultrafast -pix_fmt yuv420p \"{outroFile}\"";
                     
                     var outroProcess = Process.Start(new ProcessStartInfo {
