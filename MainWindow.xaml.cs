@@ -343,7 +343,6 @@ namespace ScreenRecorderApp {
         }
 
         private async void StopRec_Click(object sender, RoutedEventArgs e) {
-            // CRITICAL FIX: Immediately mark as not recording to prevent double-click race conditions
             if (!isRecording) return;
             isRecording = false;
             isPaused = false;
@@ -380,10 +379,21 @@ namespace ScreenRecorderApp {
                     Log("Generating 7-second animated outro...");
                     string outroFile = Path.Combine(tempFolder, "outro.mp4");
                     
-                    string fontSize1 = recordWidth < 800 ? "32" : "56";
-                    string fontSize2 = recordWidth < 800 ? "24" : "42";
+                    // Dynamically calculate font size based on video height for perfect scaling in ANY area size
+                    int calcSize1 = recordHeight / 12;
+                    int calcSize2 = recordHeight / 18;
+                    int fontSize1 = Math.Max(20, Math.Min(120, calcSize1)); // Clamp between 20 and 120
+                    int fontSize2 = Math.Max(14, Math.Min(80, calcSize2));  // Clamp between 14 and 80
                     
-                    string outroArgs = $"-y -f lavfi -i color=c=black:s={recordWidth}x{recordHeight}:d=7 -vf \"drawtext=text='Like, Share and Subscribe':fontcolor=#E60000:fontsize={fontSize1}:x=(w-text_w)/2:y=(h-text_h)/2-30:enable='between(t,0.5,7)',drawtext=text='For More Videos!':fontcolor=white:fontsize={fontSize2}:x=(w-text_w)/2:y=(h-text_h)/2+40:enable='between(t,1.5,7)'\" -c:v libx264 -preset ultrafast -pix_fmt yuv420p \"{outroFile}\"";
+                    // Use custom font if it exists in the app folder, with absolute path for FFmpeg reliability
+                    string fontPath = Path.Combine(appFolder, "font.ttf");
+                    string fontArg = File.Exists(fontPath) ? $"fontfile='{fontPath.Replace("\\", "/")}':" : "";
+                    
+                    // Engaging animation: Text appears smoothly at specific times
+                    string outroArgs = $"-y -f lavfi -i color=c=black:s={recordWidth}x{recordHeight}:d=7 " +
+                                       $"-vf \"drawtext={fontArg}text='Like, Share and Subscribe':fontcolor=#E60000:fontsize={fontSize1}:x=(w-text_w)/2:y=(h-text_h)/2-20:enable='between(t,0.5,7)'," +
+                                       $"drawtext={fontArg}text='For More Videos!':fontcolor=white:fontsize={fontSize2}:x=(w-text_w)/2:y=(h-text_h)/2+30:enable='between(t,1.5,7)'\" " +
+                                       $"-c:v libx264 -preset ultrafast -pix_fmt yuv420p \"{outroFile}\"";
                     
                     var outroProcess = Process.Start(new ProcessStartInfo {
                         FileName = ffmpegPath,
