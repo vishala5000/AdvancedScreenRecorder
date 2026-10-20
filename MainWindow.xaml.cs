@@ -385,12 +385,16 @@ namespace ScreenRecorderApp {
                     int fontSize1 = Math.Max(16, Math.Min(120, calcSize1)); // Clamp between 16 and 120
                     int fontSize2 = Math.Max(12, Math.Min(80, calcSize2));  // Clamp between 12 and 80
                     
-                    // Use custom font if it exists in the app folder, with absolute path for FFmpeg reliability
+                    // CRITICAL FIX: Use custom font if it exists, otherwise fallback to Windows Arial to guarantee it never fails
                     string fontPath = Path.Combine(appFolder, "font.ttf");
-                    string fontArg = File.Exists(fontPath) ? $"fontfile='{fontPath.Replace("\\", "/")}':" : "";
+                    string fontArg;
+                    if (File.Exists(fontPath)) {
+                        fontArg = $"fontfile='{fontPath.Replace("\\", "/")}':";
+                    } else {
+                        fontArg = "fontfile='C\\:/Windows/Fonts/arial.ttf':";
+                    }
                     
-                    // CRITICAL FIX: Added text_wrap=1, text_wrap_w=w-40, and line_spacing=5
-                    // This guarantees the text wraps beautifully and stays perfectly centered, even in narrow area selections.
+                    // Engaging animation: Text appears smoothly at specific times, with text wrapping
                     string outroArgs = $"-y -f lavfi -i color=c=black:s={recordWidth}x{recordHeight}:d=7 " +
                                        $"-vf \"drawtext={fontArg}text='Like, Share and Subscribe':fontcolor=#E60000:fontsize={fontSize1}:x=(w-text_w)/2:y=(h-text_h)/2-20:text_wrap=1:text_wrap_w=w-40:line_spacing=5:enable='between(t,0.5,7)'," +
                                        $"drawtext={fontArg}text='For More Videos!':fontcolor=white:fontsize={fontSize2}:x=(w-text_w)/2:y=(h-text_h)/2+30:text_wrap=1:text_wrap_w=w-40:line_spacing=5:enable='between(t,1.5,7)'\" " +
@@ -401,8 +405,11 @@ namespace ScreenRecorderApp {
                         Arguments = outroArgs,
                         UseShellExecute = false,
                         CreateNoWindow = true,
+                        RedirectStandardError = true, // Capture errors for logging
                         WorkingDirectory = tempFolder
                     });
+                    
+                    string outroError = outroProcess.StandardError.ReadToEnd();
                     outroProcess.WaitForExit();
 
                     // 3. Append Outro to Main Video
@@ -433,7 +440,7 @@ namespace ScreenRecorderApp {
                             Log("Outro append failed, proceeding with original video.");
                         }
                     } else {
-                        Log("Outro generation failed, proceeding without it.");
+                        Log("Outro generation failed: " + outroError);
                     }
 
                     // 4. Mix Background Music (if exists)
