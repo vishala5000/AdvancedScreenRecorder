@@ -100,22 +100,16 @@ namespace ScreenRecorderApp {
                 
                 var showItem = new Forms.ToolStripMenuItem("📺 Show V Rec");
                 showItem.Click += (s, e) => ShowWindow();
-                
                 var startItem = new Forms.ToolStripMenuItem("▶ Start");
                 startItem.Click += (s, e) => Dispatcher.Invoke(() => StartRec_Click(null, null));
-                
                 var pauseItem = new Forms.ToolStripMenuItem("⏸ Pause");
                 pauseItem.Click += (s, e) => Dispatcher.Invoke(() => PauseRec_Click(null, null));
-                
                 var stopItem = new Forms.ToolStripMenuItem("⏹ Stop");
                 stopItem.Click += (s, e) => Dispatcher.Invoke(() => StopRec_Click(null, null));
-                
                 var drawItem = new Forms.ToolStripMenuItem("✏️ Draw");
                 drawItem.Click += (s, e) => Dispatcher.Invoke(() => Draw_Click(null, null));
-                
                 var areaItem = new Forms.ToolStripMenuItem("📐 Area");
                 areaItem.Click += (s, e) => Dispatcher.Invoke(() => SelectArea_Click(null, null));
-                
                 var exitItem = new Forms.ToolStripMenuItem("❌ Exit");
                 exitItem.Click += (s, e) => ExitApplication();
                 
@@ -179,7 +173,6 @@ namespace ScreenRecorderApp {
             RegisterHotKey(hWnd, HOTKEY_STOP, MOD_CONTROL | MOD_SHIFT, 0x53);
             RegisterHotKey(hWnd, HOTKEY_DRAW, MOD_CONTROL | MOD_SHIFT, 0x44);
             RegisterHotKey(hWnd, HOTKEY_SELECT_AREA, MOD_CONTROL | MOD_SHIFT, 0x41);
-            
             HwndSource.FromHwnd(hWnd).AddHook(HwndHook);
         }
 
@@ -375,26 +368,26 @@ namespace ScreenRecorderApp {
                         File.Copy(validSegments[0], finalVideo, true);
                     }
 
-                    // 2. Generate Engaging 7-Second Outro with Text Wrapping
+                    // 2. Generate Engaging 7-Second Outro
                     Log("Generating 7-second animated outro...");
                     string outroFile = Path.Combine(tempFolder, "outro.mp4");
                     
-                    // Dynamically calculate font size based on video height for perfect scaling
+                    // Dynamically calculate font size based on video height
                     int calcSize1 = recordHeight / 10;
                     int calcSize2 = recordHeight / 16;
-                    int fontSize1 = Math.Max(16, Math.Min(120, calcSize1)); // Clamp between 16 and 120
-                    int fontSize2 = Math.Max(12, Math.Min(80, calcSize2));  // Clamp between 12 and 80
+                    int fontSize1 = Math.Max(16, Math.Min(120, calcSize1));
+                    int fontSize2 = Math.Max(12, Math.Min(80, calcSize2));
                     
-                    // CRITICAL FIX: Use custom font if it exists, otherwise fallback to Windows Arial to guarantee it never fails
-                    string fontPath = Path.Combine(appFolder, "font.ttf");
-                    string fontArg;
-                    if (File.Exists(fontPath)) {
-                        fontArg = $"fontfile='{fontPath.Replace("\\", "/")}':";
-                    } else {
-                        fontArg = "fontfile='C\\:/Windows/Fonts/arial.ttf':";
+                    // CRITICAL FIX: Copy font to temp folder so FFmpeg can find it reliably without path escaping issues
+                    string tempFontPath = Path.Combine(tempFolder, "font.ttf");
+                    string appFontPath = Path.Combine(appFolder, "font.ttf");
+                    if (File.Exists(appFontPath)) {
+                        File.Copy(appFontPath, tempFontPath, true);
                     }
                     
-                    // Engaging animation: Text appears smoothly at specific times, with text wrapping
+                    // Now FFmpeg can just use "fontfile=font.ttf"
+                    string fontArg = File.Exists(tempFontPath) ? "fontfile=font.ttf:" : "fontfile=arial:";
+                    
                     string outroArgs = $"-y -f lavfi -i color=c=black:s={recordWidth}x{recordHeight}:d=7 " +
                                        $"-vf \"drawtext={fontArg}text='Like, Share and Subscribe':fontcolor=#E60000:fontsize={fontSize1}:x=(w-text_w)/2:y=(h-text_h)/2-20:text_wrap=1:text_wrap_w=w-40:line_spacing=5:enable='between(t,0.5,7)'," +
                                        $"drawtext={fontArg}text='For More Videos!':fontcolor=white:fontsize={fontSize2}:x=(w-text_w)/2:y=(h-text_h)/2+30:text_wrap=1:text_wrap_w=w-40:line_spacing=5:enable='between(t,1.5,7)'\" " +
@@ -405,7 +398,8 @@ namespace ScreenRecorderApp {
                         Arguments = outroArgs,
                         UseShellExecute = false,
                         CreateNoWindow = true,
-                        RedirectStandardError = true, // Capture errors for logging
+                        RedirectStandardError = true,
+                        RedirectStandardOutput = true,
                         WorkingDirectory = tempFolder
                     });
                     
@@ -440,7 +434,8 @@ namespace ScreenRecorderApp {
                             Log("Outro append failed, proceeding with original video.");
                         }
                     } else {
-                        Log("Outro generation failed: " + outroError);
+                        // This will now log the EXACT FFmpeg error so we know why it failed
+                        Log("Outro generation failed with code " + outroProcess.ExitCode + ": " + outroError);
                     }
 
                     // 4. Mix Background Music (if exists)
