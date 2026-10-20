@@ -46,7 +46,6 @@ namespace ScreenRecorderApp {
         private int screenWidth;
         private int screenHeight;
         
-        // Track recording dimensions for matching the outro
         private int recordWidth;
         private int recordHeight;
         
@@ -344,13 +343,17 @@ namespace ScreenRecorderApp {
         }
 
         private async void StopRec_Click(object sender, RoutedEventArgs e) {
+            // CRITICAL FIX: Immediately mark as not recording to prevent double-click race conditions
             if (!isRecording) return;
+            isRecording = false;
+            isPaused = false;
+            StartRecButton.IsEnabled = false;
+
             string ffmpegPath = Path.Combine(appFolder, "ffmpeg.exe");
             StopFFmpegGracefully();
             clickOverlay.Stop();
 
             StatusText.Text = "⚙️ Processing & Adding Outro...";
-            StartRecButton.IsEnabled = false;
             
             await Task.Run(() => {
                 try {
@@ -377,7 +380,6 @@ namespace ScreenRecorderApp {
                     Log("Generating 7-second animated outro...");
                     string outroFile = Path.Combine(tempFolder, "outro.mp4");
                     
-                    // Dynamic font sizing based on resolution for best appearance
                     string fontSize1 = recordWidth < 800 ? "32" : "56";
                     string fontSize2 = recordWidth < 800 ? "24" : "42";
                     
@@ -466,8 +468,6 @@ namespace ScreenRecorderApp {
 
             StatusText.Text = "Ready";
             StartRecButton.IsEnabled = true;
-            isRecording = false;
-            isPaused = false;
             if (!this.IsVisible) ShowWindow();
         }
 
