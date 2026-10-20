@@ -60,7 +60,6 @@ namespace ScreenRecorderApp {
             screenWidth = GetSystemMetrics(0);
             screenHeight = GetSystemMetrics(1);
             
-            // CRITICAL FIX: Create folder first, then set log path
             try {
                 if (!Directory.Exists(outputFolder)) Directory.CreateDirectory(outputFolder);
             } catch {
@@ -72,7 +71,6 @@ namespace ScreenRecorderApp {
                 }
             }
             
-            // Set log file path AFTER folder is confirmed to exist
             logFile = Path.Combine(outputFolder, "vrec_log.txt");
             
             string iconPath = Path.Combine(appFolder, "icon.png");
@@ -208,9 +206,7 @@ namespace ScreenRecorderApp {
         }
 
         private void Log(string msg) {
-            try { 
-                File.AppendAllText(logFile, DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + " - " + msg + Environment.NewLine); 
-            } catch { }
+            try { File.AppendAllText(logFile, DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + " - " + msg + Environment.NewLine); } catch { }
         }
 
         private void CheckFFmpeg() {
@@ -275,9 +271,24 @@ namespace ScreenRecorderApp {
 
             try {
                 string outFile = Path.Combine(tempFolder, "seg_" + segmentCount + ".mp4");
-                string args = selectedArea.HasValue 
-                    ? $"-y -f gdigrab -framerate 30 -video_size {(int)selectedArea.Value.Width}x{(int)selectedArea.Value.Height} -offset_x {(int)selectedArea.Value.X} -offset_y {(int)selectedArea.Value.Y} -draw_mouse 1 -i desktop -c:v libx264 -preset ultrafast -crf 23 -pix_fmt yuv420p \"{outFile}\""
-                    : $"-y -f gdigrab -framerate 30 -video_size {screenWidth}x{screenHeight} -draw_mouse 1 -i desktop -c:v libx264 -preset ultrafast -crf 23 -pix_fmt yuv420p \"{outFile}\"";
+                
+                int width = screenWidth;
+                int height = screenHeight;
+                int offsetX = 0;
+                int offsetY = 0;
+
+                if (selectedArea.HasValue) {
+                    width = (int)selectedArea.Value.Width;
+                    height = (int)selectedArea.Value.Height;
+                    offsetX = (int)selectedArea.Value.X;
+                    offsetY = (int)selectedArea.Value.Y;
+                    
+                    // CRITICAL FIX: H.264 requires width and height to be divisible by 2
+                    if (width % 2 != 0) width -= 1;
+                    if (height % 2 != 0) height -= 1;
+                }
+
+                string args = $"-y -f gdigrab -framerate 30 -video_size {width}x{height} -offset_x {offsetX} -offset_y {offsetY} -draw_mouse 1 -i desktop -c:v libx264 -preset ultrafast -crf 23 -pix_fmt yuv420p \"{outFile}\"";
                 
                 Log("Starting FFmpeg: " + args);
                 
