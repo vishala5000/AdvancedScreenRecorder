@@ -2,7 +2,7 @@ using System;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Input;
-using System.Windows.Controls; // ADDED: Required for Canvas.SetLeft/SetTop
+using System.Windows.Controls;
 
 namespace ScreenRecorderApp {
     public partial class AreaSelectionOverlay : Window {
@@ -24,7 +24,8 @@ namespace ScreenRecorderApp {
 
         private void AreaSelectionOverlay_MouseDown(object sender, MouseButtonEventArgs e) {
             if (e.LeftButton == MouseButtonState.Pressed) {
-                startPoint = e.GetPosition(this);
+                // CRITICAL FIX: Convert to absolute screen coordinates
+                startPoint = this.PointToScreen(e.GetPosition(this));
                 isSelecting = true;
                 
                 Canvas.SetLeft(SelectionRect, startPoint.X);
@@ -36,7 +37,8 @@ namespace ScreenRecorderApp {
 
         private void AreaSelectionOverlay_MouseMove(object sender, MouseEventArgs e) {
             if (isSelecting && e.LeftButton == MouseButtonState.Pressed) {
-                Point currentPoint = e.GetPosition(this);
+                // CRITICAL FIX: Convert to absolute screen coordinates
+                Point currentPoint = this.PointToScreen(e.GetPosition(this));
                 
                 double x = Math.Min(startPoint.X, currentPoint.X);
                 double y = Math.Min(startPoint.Y, currentPoint.Y);
@@ -60,7 +62,8 @@ namespace ScreenRecorderApp {
             if (isSelecting) {
                 isSelecting = false;
                 
-                Point endPoint = e.GetPosition(this);
+                // CRITICAL FIX: Convert to absolute screen coordinates
+                Point endPoint = this.PointToScreen(e.GetPosition(this));
                 double x = Math.Min(startPoint.X, endPoint.X);
                 double y = Math.Min(startPoint.Y, endPoint.Y);
                 double width = Math.Abs(endPoint.X - startPoint.X);
